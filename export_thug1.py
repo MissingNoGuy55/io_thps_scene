@@ -56,7 +56,7 @@ def export_scn_sectors(output_file, operator=None, is_model=False):
             bm.from_object(ob, depsgraph)
             bmesh.ops.triangulate(bm, faces=bm.faces)
             bm.to_mesh(final_mesh)
-            final_mesh.calc_normals_split()
+            #final_mesh.calc_normals_split()
             
             flags = 0 if not is_levelobject else SECFLAGS_HAS_VERTEX_NORMALS
             

@@ -381,7 +381,7 @@ def unbake(obj):
     # First, remove the existing mats on the object (these should be lightmapped)
     for i in range(len(obj.material_slots)):
         obj.active_material_index = i
-        bpy.ops.object.material_slot_remove({'object': obj})
+        bpy.ops.object.material_slot_remove()
         
     for mat_name in obj["original_mats"]:
         if not bpy.data.materials.get(mat_name):
@@ -625,8 +625,7 @@ def bake_hl2_lightmaps(meshes, context):
             # Unwrap the mesh based on the type specified on the object properties!
             if ob.thug_lightmap_type == 'Lightmap':
                 bpy.ops.uv.lightmap_pack(
-                    PREF_CONTEXT='ALL_FACES', PREF_PACK_IN_ONE=True, PREF_NEW_UVLAYER=False,
-                    PREF_APPLY_IMAGE=False, PREF_IMG_PX_SIZE=img_res, 
+                    PREF_CONTEXT='ALL_FACES', PREF_PACK_IN_ONE=True, PREF_NEW_UVLAYER=False, 
                     PREF_BOX_DIV=48, PREF_MARGIN_DIV=bake_margin)
             elif ob.thug_lightmap_type == 'Smart':
                 bpy.ops.uv.smart_project()
@@ -971,7 +970,6 @@ def bake_ugplus_lightmaps(meshes, context):
             if ob.thug_lightmap_type == 'Lightmap':
                 bpy.ops.uv.lightmap_pack(
                     PREF_CONTEXT='ALL_FACES', PREF_PACK_IN_ONE=True, PREF_NEW_UVLAYER=False,
-                    PREF_APPLY_IMAGE=False, PREF_IMG_PX_SIZE=img_res, 
                     PREF_BOX_DIV=48, PREF_MARGIN_DIV=bake_margin)
             elif ob.thug_lightmap_type == 'Smart':
                 bpy.ops.uv.smart_project()
@@ -1315,7 +1313,7 @@ def bake_thug_lightmaps(meshes, context):
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             # Create a new UV layer for the ambient occlusion map
-            bpy.ops.mesh.uv_texture_add({"object": ob})
+            bpy.ops.mesh.uv_texture_add()
             ob.data.uv_layers[len(ob.data.uv_layers)-1].name = 'Lightmap'
             ob.data.uv_layers['Lightmap'].active = True
             #ob.data.uv_layers['Lightmap'].active_render = True
@@ -1327,7 +1325,6 @@ def bake_thug_lightmaps(meshes, context):
             if ob.thug_lightmap_type == 'Lightmap':
                 bpy.ops.uv.lightmap_pack(
                     PREF_CONTEXT='ALL_FACES', PREF_PACK_IN_ONE=True, PREF_NEW_UVLAYER=False,
-                    PREF_APPLY_IMAGE=False, PREF_IMG_PX_SIZE=img_res, 
                     PREF_BOX_DIV=48, PREF_MARGIN_DIV=bake_margin)
             elif ob.thug_lightmap_type == 'Smart':
                 bpy.ops.uv.smart_project()
@@ -2264,8 +2261,7 @@ class THUG_GenerateLightmapGroupUVs(bpy.types.Operator):
                             angle_limit=72.0, island_margin=0.1, user_area_weight=0.0)
                     elif unwrapType == 'Lightmap':
                         bpy.ops.uv.lightmap_pack(
-                            PREF_CONTEXT='ALL_FACES', PREF_PACK_IN_ONE=True, PREF_NEW_UVLAYER=False,
-                            PREF_APPLY_IMAGE=False, PREF_IMG_PX_SIZE=int(groupProps.resolution), PREF_BOX_DIV=48, PREF_MARGIN_DIV=0.1)
+                            PREF_CONTEXT='ALL_FACES', PREF_PACK_IN_ONE=True, PREF_NEW_UVLAYER=False, PREF_BOX_DIV=48, PREF_MARGIN_DIV=0.1)
                     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
             else:

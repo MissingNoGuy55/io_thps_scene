@@ -553,7 +553,7 @@ def export_col(filename, directory, target_game, operator=None):
     # Applies modifiers and triangulates mesh - unless the 'speed hack' export option is on
     def triang(o):
         bm.clear()
-        bm.from_object(o, depsgraph)
+        bm.from_mesh(o.data)
         bmesh.ops.triangulate(bm, faces=bm.faces)
         return
 

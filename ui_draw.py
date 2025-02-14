@@ -74,6 +74,10 @@ def draw_stuff():
     NON_COLLIDABLE_FLAG = FACE_FLAGS["mFD_NON_COLLIDABLE"]
 
     _tmp_buf = bgl.Buffer(bgl.GL_FLOAT, 1)
+    
+    if not _tmp_buf[0]:
+        return
+    
     bgl.glGetFloatv(bgl.GL_POLYGON_OFFSET_FACTOR, _tmp_buf)
     old_offset_factor = _tmp_buf[0]
     bgl.glGetFloatv(bgl.GL_POLYGON_OFFSET_UNITS, _tmp_buf)

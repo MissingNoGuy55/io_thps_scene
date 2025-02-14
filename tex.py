@@ -13,8 +13,7 @@ from . helpers import *
 import math
 import numpy as np
 
-import bpy
-
+from . dxt import *
 
 # Get or generate a new image, given the image name/dimensions
 def get_image(img_name, img_width, img_height):
@@ -73,8 +72,12 @@ def replace_img_channel(source_img, mix_img, chn):
     source_img.pixels = pixels.tolist()
     source_img.update()
 
+#----------------------------------------------------------------------------------
+#- Missi: completely rewritten. Old function was wholly reliant on the old BGL API
+#----------------------------------------------------------------------------------
 def get_all_compressed_mipmaps(image, compression_type, mm_offset):
-    import bgl, math
+    import gpu, math, imbuf, os
+    import numpy as np
     from contextlib import ExitStack
     assert image.channels == 4
     assert compression_type in (1, 5)
@@ -82,106 +85,56 @@ def get_all_compressed_mipmaps(image, compression_type, mm_offset):
     uncompressed_data = get_all_mipmaps(image, mm_offset)
     if not uncompressed_data: return []
 
-    images = []
+    textures = []
+    
+    for level, (uncomp_w, uncomp_h, uncompressed_pixels) in enumerate(uncompressed_data):
 
-    with ExitStack() as stack:
-        texture_id = bgl.Buffer(bgl.GL_INT, 1)
+        #print( uncomp_w, uncomp_h )
 
-        bgl.glGenTextures(1, texture_id)
-        stack.callback(bgl.glDeleteTextures, 1, texture_id)
+        dst = np.empty( len(uncompressed_pixels), dtype=np.ubyte )
+        out = np.empty( get_mipmapped_size(uncomp_w, uncomp_h, 4, 0, 1, DDS_COMPRESS_BC1 ), dtype=np.ubyte )
 
-        img_width, img_height = image.size
-        texture_data = bgl.Buffer(bgl.GL_BYTE, img_width * img_height * 4)
-        try:
-            level_img_width = img_width
-            level_img_height = img_height
-            for level, (uncomp_w, uncomp_h, uncompressed_pixels) in enumerate(uncompressed_data):
-                texture_data[0:len(uncompressed_pixels)] = uncompressed_pixels
-
-                bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture_id[0])
-                bgl.glTexImage2D(
-                    bgl.GL_TEXTURE_2D,
-                    level,
-                    COMPRESSED_RGBA_S3TC_DXT1_EXT if compression_type == 1 else COMPRESSED_RGBA_S3TC_DXT5_EXT,
-                    uncomp_w, #level_img_width,
-                    uncomp_h, #level_img_height,
-                    0,
-                    bgl.GL_RGBA,
-                    bgl.GL_UNSIGNED_BYTE,
-                    texture_data)
-
-                level_img_width /= 2.0
-                level_img_width = math.ceil(level_img_width)
-                level_img_height /= 2.0
-                level_img_height = math.ceil(level_img_height)
-
-            level = 0
-            while level < 16:
-                # LOG.debug('')
-                buf = bgl.Buffer(bgl.GL_INT, 1)
-                bgl.glGetTexLevelParameteriv(bgl.GL_TEXTURE_2D, level, bgl.GL_TEXTURE_WIDTH, buf)
-                width = buf[0]
-                # LOG.debug(width)
-                if width < 8: break
-                bgl.glGetTexLevelParameteriv(bgl.GL_TEXTURE_2D, level, bgl.GL_TEXTURE_HEIGHT, buf)
-                height = buf[0]
-                if height < 8: break
-                bgl.glGetTexLevelParameteriv(bgl.GL_TEXTURE_2D, level, bgl.GL_TEXTURE_COMPRESSED_IMAGE_SIZE, buf)
-                # buf_size = width * height * 4
-                buf_size = buf[0]
-                del buf
-                # LOG.debug(buf_size)
-                buf = bgl.Buffer(bgl.GL_BYTE, buf_size)
-                bgl.glGetCompressedTexImage(bgl.GL_TEXTURE_2D, level, buf)
-                images.append((width, height, buf))
-                if level == 0:
-                    pass # LOG.debug(images[0][:16])
-                # del buf
-                level += 1
-        finally:
-            del texture_data
-        return images
-
+        swap_rb( uncompressed_pixels, uncomp_w * uncomp_h, 4 )
+        
+        src = [ int( p * 255.0 ) for p in uncompressed_pixels ]
+        
+        dxt_compress( out, src, DDS_COMPRESS_BC1, uncomp_w, uncomp_h, 4, 1, DXT_BC1 )
+        
+        textures.append( ( uncomp_w, uncomp_h, out ) )
+    
+    return textures
 
 #----------------------------------------------------------------------------------
+#- Missi: completely rewritten. Old function was wholly reliant on the old BGL API
+#----------------------------------------------------------------------------------
 def get_all_mipmaps(image, mm_offset = 0):
-    import bgl
-    images = []
-
-    image.gl_load()
-    image_id = image.bindcode
-    if image_id == 0:
-        return images
-    level = mm_offset # denetii - change this to shift the largest exported size down
-    bgl.glBindTexture(bgl.GL_TEXTURE_2D, image_id)
-    while level < 16:
-        # LOG.debug('')
-        buf = bgl.Buffer(bgl.GL_INT, 1)
-        bgl.glGetTexLevelParameteriv(bgl.GL_TEXTURE_2D, level, bgl.GL_TEXTURE_WIDTH, buf)
-        width = buf[0]
-        # LOG.debug(width)
-        if width < 8: break
-        bgl.glGetTexLevelParameteriv(bgl.GL_TEXTURE_2D, level, bgl.GL_TEXTURE_HEIGHT, buf)
-        height = buf[0]
-        if height < 8: break
-        del buf
-        buf_size = width * height * 4
-        # LOG.debug(buf_size)
-        buf = bgl.Buffer(bgl.GL_BYTE, buf_size)
-        bgl.glGetTexImage(bgl.GL_TEXTURE_2D, level, bgl.GL_RGBA, bgl.GL_UNSIGNED_BYTE, buf)
+    import gpu
+    
+    textures = []
+    base_width = image.size[0]
+    base_height = image.size[1]
+    
+    image_width = base_width
+    image_height = base_height
+    
+    for iterations in range( 0, image.thug_image_props.mip_levels ):
         
-        if '1' in image.thug_image_props.img_flags:
-            print('Inverting alpha!')
-            pixels = invert_img_channel(buf.to_list(), 'a')
-            del buf
-            buf = bgl.Buffer(bgl.GL_BYTE, buf_size, pixels)
-            
-        images.append((width, height, buf))
-        if level == 0:
-            pass # LOG.debug(images[0][:16])
-        # del buf
-        level += 1
-    return images
+        new_image = image.copy()
+
+        new_image.scale( int( image_width ), int( image_height ) )
+        
+        tex = np.empty( len( new_image.pixels ), dtype=np.float32 )
+        new_image.pixels.foreach_get( tex )
+        new_image.update()
+        
+        textures.append( ( int( image_width ), int( image_height ), tex ) )
+        
+        image_width = int( image_width / 2.0 )
+        image_height = int( image_height / 2.0 )
+        
+        bpy.data.images.remove( new_image )
+    
+    return textures
 
 #----------------------------------------------------------------------------------
 def import_img(path, img_name):
@@ -575,7 +528,7 @@ def export_tex(filename, directory, target_game, operator=None):
             width, height, _ = mipmaps[0]
             mipmaps = [mm for mw, mh, mm in mipmaps]
             #LOG.debug("width, height: {}, {}".format(width, height))
-
+            
             mip_levels = min(len(mipmaps), image.thug_image_props.mip_levels)
             if mip_levels == 0:
                 mip_levels = len(mipmaps)
@@ -609,7 +562,7 @@ def export_tex(filename, directory, target_game, operator=None):
                 out_pixels = []
                 _append = out_pixels.append
 
-                for i in range(0, len(mipmap), 4):
+                for i in range(0, len(pixels), 4):
                     j = i # i * channels
                     """
                     r = int(pixels[j] * 255) & 0xff
@@ -634,7 +587,6 @@ def export_tex(filename, directory, target_game, operator=None):
 
     # Remove temp solid-color images generated during export
     cleanup_colortex()
-
 
 # OPERATORS
 #############################################

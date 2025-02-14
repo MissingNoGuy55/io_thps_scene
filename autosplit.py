@@ -127,7 +127,10 @@ def _alt_split_obj(ob, context, max_radius=500, faces_per_subobject=250, preserv
         return
 
     print("Separating {}".format(ob.name))
-    ob.data.calc_normals_split()
+    
+    # Missi: removed in Blender 4.1
+    #ob.data.calc_normals_split()
+    
     import bpy, bmesh, itertools
     # from mathutils.bvhtree import BVHTree
     from mathutils.kdtree import KDTree
@@ -261,7 +264,7 @@ def _alt_split_obj(ob, context, max_radius=500, faces_per_subobject=250, preserv
                 new_mesh.normals_split_custom_set(custom_normals)
 
             if len(faces_to_delete) >= 15000:
-                bmesh.ops.delete(bm, geom=faces_to_delete, context=5)
+                bmesh.ops.delete(bm, geom=faces_to_delete, context='FACES_KEEP_BOUNDARY')
                 faces_to_delete = []
                 init()
 
