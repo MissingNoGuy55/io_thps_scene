@@ -48,7 +48,9 @@ def export_scn_sectors(output_file, operator=None, is_model=False):
                 lo_matrix[1][1] = ob.scale[1]
                 lo_matrix[2][2] = ob.scale[2]
             
-            final_mesh = ob.data
+            # Missi: I assume this is an oversight because this ends up making the exporter destructively triangulate everything
+            #final_mesh = ob.data
+            final_mesh = ob.data.copy()
 
             object_counter += 1
 
@@ -250,6 +252,9 @@ def export_scn_sectors(output_file, operator=None, is_model=False):
                 strip = get_triangle_strip(final_mesh, bm, mat_faces, split_verts, flags) #(bm) #(ob)
                 w("i", len(strip))
                 w(str(len(strip)) + "H", *strip)
+
+            # Missi: Delete the cloned mesh we made at the start of this loop
+            bpy.data.meshes.remove( final_mesh )
         
         except Exception as ex:
             raise ExportError("Failed to export scene object {}: {}".format(ob.name, str(ex))).with_traceback(ex.__traceback__)

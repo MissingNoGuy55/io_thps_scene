@@ -4,6 +4,7 @@
 import bpy
 import os
 import struct
+import platform
 from bpy.props import *
 from . constants import *
 from . helpers import *
@@ -14,6 +15,7 @@ import math
 import numpy as np
 
 from . dxt import *
+import subprocess
 
 # Get or generate a new image, given the image name/dimensions
 def get_image(img_name, img_width, img_height):
@@ -73,10 +75,10 @@ def replace_img_channel(source_img, mix_img, chn):
     source_img.update()
 
 #----------------------------------------------------------------------------------
-#- Missi: completely rewritten. Old function was wholly reliant on the old BGL API
+#- Missi: Completely rewritten. Old function was wholly reliant on the old BGL API
 #----------------------------------------------------------------------------------
-def get_all_compressed_mipmaps(image, compression_type, mm_offset):
-    import gpu, math, imbuf, os
+def get_all_compressed_mipmaps(image, compression_type, mm_offset, folder):
+    import math, os
     import numpy as np
     from contextlib import ExitStack
     assert image.channels == 4
@@ -87,28 +89,63 @@ def get_all_compressed_mipmaps(image, compression_type, mm_offset):
 
     textures = []
     
+    dxt_compressor = "dxtcompressor.exe" if platform.system() == "Windows" else "dxtcompressor"
+
+        #src_uint8 = np.empty( len( uncompressed_pixels.pixels ), dtype=np.uint8 )
+
+        #out_bytes = None
+
     for level, (uncomp_w, uncomp_h, uncompressed_pixels) in enumerate(uncompressed_data):
 
-        #print( uncomp_w, uncomp_h )
+        src = np.empty( len( uncompressed_pixels.pixels ), dtype=np.float32 )
+        #src_uint8 = np.empty( len( uncompressed_pixels.pixels ), dtype=np.uint8 )
 
-        dst = np.empty( len(uncompressed_pixels), dtype=np.ubyte )
-        out = np.empty( get_mipmapped_size(uncomp_w, uncomp_h, 4, 0, 1, DDS_COMPRESS_BC1 ), dtype=np.ubyte )
+        out_bytes = None
+        
+        uncompressed_pixels.pixels.foreach_get( src )
 
-        swap_rb( uncompressed_pixels, uncomp_w * uncomp_h, 4 )
+        #for i in range( 0, len( src ) ):
+            #src_uint8[i] = ( src[i] * 255.0 )
         
-        src = [ int( p * 255.0 ) for p in uncompressed_pixels ]
+        #swap_rb( src_uint8, uncomp_w * uncomp_h, 4 )
         
-        dxt_compress( out, src, DDS_COMPRESS_BC1, uncomp_w, uncomp_h, 4, 1, DXT_BC1 )
+        #convert_pixels( fmtdst, src, DDS_FORMAT_RGBA8, uncomp_w, uncomp_h, 0, 4, None, 1 )
         
-        textures.append( ( uncomp_w, uncomp_h, out ) )
+        path = '{0}{1}{2}_mip{3}.ddsbytes'.format( folder, os.sep, image.name, level )
+
+        try:
+            fd = os.open( path, os.O_RDONLY )
+            #LOG.debug( 'file {} already exists!'.format( path ) )
+            os.close( fd )
+        except OSError as e:
+            #LOG.debug( 'creating file {}'.format( path ) )
+            fd = os.open( path, os.O_WRONLY | os.O_CREAT )
+            os.write( fd, src )
+            os.close( fd )
+
+        #dxt_compress( out_bytes, src_uint8, DDS_COMPRESS_BC1, uncomp_w, uncomp_h, 4, 1, 0 )
+        
+        out_path = '{0}{1}{2}_mip{3}.ddscache'.format( folder, os.sep, image.name, level )
+
+        subprocess.run( [ get_asset_path( dxt_compressor ), path, '{0}'.format( uncomp_w ), '{0}'.format( uncomp_h ), '{0}'.format( compression_type ), out_path ], capture_output=True )
+
+        with open(out_path, "rb" ) as file:
+            out_bytes = file.read()
+            
+        #os.remove( '{0}{1}{2}_mip{3}.ddsbytes'.format( folder, os.sep, image.name, level ) )
+
+        if ( out_bytes == None ):
+            LOG.debug( "uh oh... " )
+            return None
+
+        textures.append( ( uncomp_w, uncomp_h, out_bytes ) )
     
     return textures
 
 #----------------------------------------------------------------------------------
-#- Missi: completely rewritten. Old function was wholly reliant on the old BGL API
+#- Missi: Completely rewritten. Old function was wholly reliant on the old BGL API
 #----------------------------------------------------------------------------------
 def get_all_mipmaps(image, mm_offset = 0):
-    import gpu
     
     textures = []
     base_width = image.size[0]
@@ -118,21 +155,22 @@ def get_all_mipmaps(image, mm_offset = 0):
     image_height = base_height
     
     for iterations in range( 0, image.thug_image_props.mip_levels ):
-        
-        new_image = image.copy()
 
-        new_image.scale( int( image_width ), int( image_height ) )
+        src = bpy.data.images.new( '{}_mip{}_compressed'.format( image.name, iterations ), base_width, base_height )
         
-        tex = np.empty( len( new_image.pixels ), dtype=np.float32 )
-        new_image.pixels.foreach_get( tex )
-        new_image.update()
+        new_pixels = np.empty( len( image.pixels ), dtype=np.float32 )
         
-        textures.append( ( int( image_width ), int( image_height ), tex ) )
+        image.pixels.foreach_get( new_pixels )
         
-        image_width = int( image_width / 2.0 )
-        image_height = int( image_height / 2.0 )
+        src.pixels.foreach_set( new_pixels )
+
+        src.scale( int( image_width ), int( image_height ) )
+        src.update()
         
-        bpy.data.images.remove( new_image )
+        textures.append( ( int( image_width ), int( image_height ), src ) )
+
+        image_width /= 2.0
+        image_height /= 2.0
     
     return textures
 
@@ -315,6 +353,12 @@ def cleanup_colortex():
         if image.name.startswith('io_thps_scene_Color_'):
             image.user_clear()
             bpy.data.images.remove(image)
+            
+def cleanup_mips():
+    for image in bpy.data.images:
+        if image.name.endswith('_compressed'):
+            image.user_clear()
+            bpy.data.images.remove(image)
 
 def set_image_compression(matslot, compression):
     if matslot.tex_image:
@@ -339,6 +383,7 @@ def export_tex(filename, directory, target_game, operator=None):
             out_materials.append(mat.name)
             
     out_images = []
+    out_files = []
     for m_name in out_materials:
         m = bpy.data.materials[m_name]
         if hasattr(m.thug_material_props, 'use_new_mats') and m.thug_material_props.use_new_mats == True \
@@ -467,7 +512,17 @@ def export_tex(filename, directory, target_game, operator=None):
                         out_images.append(m.thug_material_props.grass_props.grass_textures[i].tex_image_name)
                     
     output_file = os.path.join(directory, filename)
+
+    _dds_folder = bpy.path.basename(bpy.context.blend_data.filepath)[:-6] # = Name of blend file
+    _folder = bpy.path.abspath( "//dds{0}{1}".format( os.sep, _dds_folder ) )
+
+    _folder = bpy.path.native_pathsep(_folder)
+    _dds_folder = bpy.path.native_pathsep(_dds_folder)
+
+    os.makedirs( _folder, 0o777, True )
+
     with open(output_file, "wb") as outp:
+        out_files.append( outp )
         exported_images = [img for img in bpy.data.images if img.name in out_images]
         w("2I", 777, 0)
 
@@ -516,7 +571,7 @@ def export_tex(filename, directory, target_game, operator=None):
                     tex_size /= 2
                     mm_offset += 1
                     
-            mipmaps = get_all_compressed_mipmaps(image, dxt, mm_offset) if do_compression else get_all_mipmaps(image, mm_offset)
+            mipmaps = get_all_compressed_mipmaps(image, dxt, mm_offset, _folder) if do_compression else get_all_mipmaps(image, mm_offset)
             #for idx, (mw, mh, mm) in enumerate(mipmaps):
                 #LOG.debug("mm #{}: {}x{} bytes: {}".format(idx, mw, mh, len(mm)))
             if not do_compression:
@@ -524,6 +579,7 @@ def export_tex(filename, directory, target_game, operator=None):
                 #LOG.debug("after culling: {}".format(len(mipmaps)))
             if not mipmaps:
                 continue
+
             exported_images_count += 1
             width, height, _ = mipmaps[0]
             mipmaps = [mm for mw, mh, mm in mipmaps]
@@ -587,6 +643,8 @@ def export_tex(filename, directory, target_game, operator=None):
 
     # Remove temp solid-color images generated during export
     cleanup_colortex()
+
+    cleanup_mips()
 
 # OPERATORS
 #############################################

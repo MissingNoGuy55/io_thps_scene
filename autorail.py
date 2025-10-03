@@ -212,7 +212,7 @@ def update_pathnode_ui_properties(scene):
         return
     update_triggered_by_ui_updater = True
     try:
-        ob = bpy.context.object #scene.objects.active
+        ob = bpy.context.view_layer.objects.active #scene.objects.active
         if not ob or ob.mode != "EDIT" or ob.type != "CURVE" or not ob.thug_path_type in ("Rail", "Ladder", "Waypoint", "Custom"):
             return
         wm = bpy.context.window_manager
@@ -915,7 +915,8 @@ class AutoRailMesh(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.mode == "OBJECT" and context.active_object.type == "CURVE"
+        # Missi: Added None check here because hiding a selected rail would throw an exception
+        return context.mode == "OBJECT" and context.active_object != None and context.active_object.type == "CURVE"
 
     def execute(self, context):
         if context.selected_objects:

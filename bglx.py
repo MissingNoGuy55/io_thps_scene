@@ -126,13 +126,13 @@ def glEnd():
     tex_coords = inst.get_tex_coords()
     if inst.get_dims() == 2:
         if len(tex_coords) == 0:
-            shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+            shader = gpu.shader.from_builtin('UNIFORM_COLOR')
         else:
             #shader = gpu.shader.from_builtin('2D_IMAGE')
             vert_shader, frag_shader = _get_transparency_shader()
             shader = gpu.types.GPUShader(vert_shader, frag_shader)
     elif inst.get_dims() == 3:
-        shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+        shader = gpu.shader.from_builtin('UNIFORM_COLOR')
     else:
         raise NotImplemented("get_dims() != 2")
 

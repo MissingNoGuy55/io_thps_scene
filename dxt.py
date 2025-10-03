@@ -211,9 +211,9 @@ filters = [ mipfilter( DDS_MIPMAP_FILTER_BOX, box_filter, 0.5 ),
             mipfilter( DDS_MIPMAP_FILTER_LANCZOS, lanczos_filter, 3.0 ),
             mipfilter( DDS_MIPMAP_FILTER_KAISER, kaiser_filter, 3.0 ) ]
 
-###############################################################################
-## wrap modes                                                                 #
-###############################################################################
+#----------------------------------------------------------------------------------
+#- Missi: Mipmap wrapping methods
+#----------------------------------------------------------------------------------
 
 def wrap_mirror(x, max):
     if max == 1: x = 0
@@ -229,7 +229,7 @@ def wrap_repeat(x, max):
 def wrap_clamp(x, maxval):
     return(max(0, min(maxval - 1, x)));
 
-###############################################################################
+#----------------------------------------------------------------------------------
 
 def calc_alpha_test_coverage( src, width, height, bpp, alpha_test_threshold, alpha_scale ):
     x = 0
@@ -237,6 +237,8 @@ def calc_alpha_test_coverage( src, width, height, bpp, alpha_test_threshold, alp
     rowbytes = width * bpp
     coverage = 0
     alpha_channel_idx = 3
+
+    print( 'preserving alpha coverage' )
 
     if bpp <= alpha_channel_idx:
         return 1.0
@@ -407,7 +409,7 @@ def generate_mipmaps( dst, src, width, height, bpp, indexed, mipmaps, filter, wr
     filter_func = None
     wrap_func = None
     support = 0.0
-    has_alpha = (bpp >= 3)
+    has_alpha = bool(bpp >= 3)
     alpha_test_coverage = 1.0;
 
     if indexed or filter == DDS_MIPMAP_FILTER_NEAREST:
@@ -436,36 +438,37 @@ def generate_mipmaps( dst, src, width, height, bpp, indexed, mipmaps, filter, wr
         case _:
             wrap_func = wrap_clamp
 
-    if has_alpha and preserve_alpha_coverage:
+    if has_alpha == True and preserve_alpha_coverage > 0:
         alpha_test_coverage = calc_alpha_test_coverage(src, width, height, bpp, alpha_test_threshold, 1.0);
 
     # memcpy(dst, src, width * height * bpp);
-    
-    for i in range( 0, len( src ) ):
-        dst[i] = src[i]
         
-    #dst[:] = src[:]
+    dst[:] = src[:]
 
     s = dst
-    d[:] = dst[:len(d)]
+    d = dst
 
     sw = width
     sh = height
 
-    for i in range( 1, mipmaps ):
-        dw = max(1, sw >> 1);
-        dh = max(1, sh >> 1);
+    # for i in range( 1, mipmaps ):
+    dw = max(1, sw >> 1);
+    dh = max(1, sh >> 1);
 
-        mipmap_func( d, dw, dh, s, sw, sh, bpp, filter_func, support, wrap_func, gc, gamma )
+    #print( len( d ) )
 
-        if has_alpha and preserve_alpha_coverage:
-            scale_alpha_to_coverage( d, dw, dh, bpp, alpha_test_coverage, alpha_test_threshold )
+    mipmap_func( d, dw, dh, s, sw, sh, bpp, filter_func, support, wrap_func, gc, gamma )
 
-        s = d
-        sw = dw
-        sh = dh
-        
-        d = d[(dw * dh * bpp):]
+    if has_alpha == True and preserve_alpha_coverage > 0:
+        scale_alpha_to_coverage( d, dw, dh, bpp, alpha_test_coverage, alpha_test_threshold )
+
+    s = d
+    sw = dw
+    sh = dh
+    
+    # offset += (dw * dh * bpp)
+    
+    # d = d[offset:]
     
 #----------------------------------------------------------------------------------
 #- Missi: Compression methods, classes and variables 
@@ -509,197 +512,191 @@ class vec4_t:
         return self
 
 
-DDS_COMPRESS_NONE = 0
-DDS_COMPRESS_BC1 = 1        # DXT1
-DDS_COMPRESS_BC2 = 2        # DXT3
-DDS_COMPRESS_BC3 = 3        # DXT5
-DDS_COMPRESS_BC3N = 4       # DXT5n
-DDS_COMPRESS_BC4 = 5        # ATI1
-DDS_COMPRESS_BC5 = 6        # ATI2
-DDS_COMPRESS_RXGB = 7       # DXT5
-DDS_COMPRESS_AEXP = 8       # DXT5
-DDS_COMPRESS_YCOCG = 9      # DXT5
-DDS_COMPRESS_YCOCGS = 10    # DXT5
+DDS_COMPRESS_NONE    = 0
+DDS_COMPRESS_BC1     = 1        # DXT1
+DDS_COMPRESS_BC2     = 2        # DXT3
+DDS_COMPRESS_BC3     = 3        # DXT5
+DDS_COMPRESS_BC3N    = 4        # DXT5n
+DDS_COMPRESS_BC4     = 5        # ATI1
+DDS_COMPRESS_BC5     = 6        # ATI2
+DDS_COMPRESS_RXGB    = 7        # DXT5
+DDS_COMPRESS_AEXP    = 8        # DXT5
+DDS_COMPRESS_YCOCG   = 9        # DXT5
+DDS_COMPRESS_YCOCGS  = 10       # DXT5
 
-DDS_FORMAT_DEFAULT = 0
-DDS_FORMAT_RGB8 = 1
-DDS_FORMAT_RGBA8 = 2
-DDS_FORMAT_BGR8 = 3
-DDS_FORMAT_ABGR8 = 4
-DDS_FORMAT_R5G6B5 = 5
-DDS_FORMAT_RGBA4 = 6
-DDS_FORMAT_RGB5A1 = 7
-DDS_FORMAT_RGB10A2 = 8
-DDS_FORMAT_R3G3B2 = 9
-DDS_FORMAT_A8 = 10
-DDS_FORMAT_L8 = 11
-DDS_FORMAT_L8A8 = 12
-DDS_FORMAT_AEXP = 13
-DDS_FORMAT_YCOCG = 14
+DDS_FORMAT_DEFAULT   = 0
+DDS_FORMAT_RGB8      = 1
+DDS_FORMAT_RGBA8     = 2
+DDS_FORMAT_BGR8      = 3
+DDS_FORMAT_ABGR8     = 4
+DDS_FORMAT_R5G6B5    = 5
+DDS_FORMAT_RGBA4     = 6
+DDS_FORMAT_RGB5A1    = 7
+DDS_FORMAT_RGB10A2   = 8
+DDS_FORMAT_R3G3B2    = 9
+DDS_FORMAT_A8        = 10
+DDS_FORMAT_L8        = 11
+DDS_FORMAT_L8A8      = 12
+DDS_FORMAT_AEXP      = 13
+DDS_FORMAT_YCOCG     = 14
 
-DXT_BC1           = 1 << 0
-DXT_BC2           = 1 << 1
-DXT_BC3           = 1 << 2
-DXT_PERCEPTUAL    = 1 << 3
+DXT_BC1              = 1 << 0
+DXT_BC2              = 1 << 1
+DXT_BC3              = 1 << 2
+DXT_PERCEPTUAL       = 1 << 3
 
-V4HALF = vec4_t( 0.5, 0.5, 0.5, 0.5 )
-V4GRID = vec4_t( 31.0, 63.0, 31.0, 0.0 )
-V4GRIDRCP = vec4_t( 1.0 / 31.0, 1.0 / 63.0, 1.0 / 31.0 )
-V4ZERO = vec4_t(0.0, 0.0, 0.0, 0.0)
-V4ONE = vec4_t(1.0, 1.0, 1.0, 1.0)
-V4ONETHIRD  = vec4_t(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0)
-V4TWOTHIRDS = vec4_t(2.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0)
-V4EPSILON   = vec4_t(1e-04, 1e-04, 1e-04, 1e-04)
+V4HALF               = vec4_t( 0.5, 0.5, 0.5, 0.5 )
+V4GRID               = vec4_t( 31.0, 63.0, 31.0, 0.0 )
+V4GRIDRCP            = vec4_t( 1.0 / 31.0, 1.0 / 63.0, 1.0 / 31.0 )
+V4ZERO               = vec4_t( 0.0, 0.0, 0.0, 0.0 )
+V4ONE                = vec4_t( 1.0, 1.0, 1.0, 1.0 )
+V4ONETHIRD           = vec4_t( 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0 )
+V4TWOTHIRDS          = vec4_t( 2.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0 )
+V4EPSILON            = vec4_t( 1e-04, 1e-04, 1e-04, 1e-04 )
 
-omatch5 = [ [0x00, 0x00], [0x00, 0x00], [0x00, 0x01], [0x00, 0x01], 
-   [0x01, 0x00], [0x01, 0x00], [0x01, 0x00], [0x01, 0x01], 
-   [0x01, 0x01], [0x01, 0x01], [0x01, 0x02], [0x00, 0x04], 
-   [0x02, 0x01], [0x02, 0x01], [0x02, 0x01], [0x02, 0x02], 
-   [0x02, 0x02], [0x02, 0x02], [0x02, 0x03], [0x01, 0x05], 
-   [0x03, 0x02], [0x03, 0x02], [0x04, 0x00], [0x03, 0x03], 
-   [0x03, 0x03], [0x03, 0x03], [0x03, 0x04], [0x03, 0x04], 
-   [0x03, 0x04], [0x03, 0x05], [0x04, 0x03], [0x04, 0x03], 
-   [0x05, 0x02], [0x04, 0x04], [0x04, 0x04], [0x04, 0x05], 
-   [0x04, 0x05], [0x05, 0x04], [0x05, 0x04], [0x05, 0x04], 
-   [0x06, 0x03], [0x05, 0x05], [0x05, 0x05], [0x05, 0x06], 
-   [0x04, 0x08], [0x06, 0x05], [0x06, 0x05], [0x06, 0x05], 
-   [0x06, 0x06], [0x06, 0x06], [0x06, 0x06], [0x06, 0x07], 
-   [0x05, 0x09], [0x07, 0x06], [0x07, 0x06], [0x08, 0x04], 
-   [0x07, 0x07], [0x07, 0x07], [0x07, 0x07], [0x07, 0x08], 
-   [0x07, 0x08], [0x07, 0x08], [0x07, 0x09], [0x08, 0x07], 
-   [0x08, 0x07], [0x09, 0x06], [0x08, 0x08], [0x08, 0x08], 
-   [0x08, 0x09], [0x08, 0x09], [0x09, 0x08], [0x09, 0x08], 
-   [0x09, 0x08], [0x0a, 0x07], [0x09, 0x09], [0x09, 0x09], 
-   [0x09, 0x0a], [0x08, 0x0c], [0x0a, 0x09], [0x0a, 0x09], 
-   [0x0a, 0x09], [0x0a, 0x0a], [0x0a, 0x0a], [0x0a, 0x0a], 
-   [0x0a, 0x0b], [0x09, 0x0d], [0x0b, 0x0a], [0x0b, 0x0a], 
-   [0x0c, 0x08], [0x0b, 0x0b], [0x0b, 0x0b], [0x0b, 0x0b], 
-   [0x0b, 0x0c], [0x0b, 0x0c], [0x0b, 0x0c], [0x0b, 0x0d], 
-   [0x0c, 0x0b], [0x0c, 0x0b], [0x0d, 0x0a], [0x0c, 0x0c], 
-   [0x0c, 0x0c], [0x0c, 0x0d], [0x0c, 0x0d], [0x0d, 0x0c], 
-   [0x0d, 0x0c], [0x0d, 0x0c], [0x0e, 0x0b], [0x0d, 0x0d], 
-   [0x0d, 0x0d], [0x0d, 0x0e], [0x0c, 0x10], [0x0e, 0x0d], 
-   [0x0e, 0x0d], [0x0e, 0x0d], [0x0e, 0x0e], [0x0e, 0x0e], 
-   [0x0e, 0x0e], [0x0e, 0x0f], [0x0d, 0x11], [0x0f, 0x0e], 
-   [0x0f, 0x0e], [0x10, 0x0c], [0x0f, 0x0f], [0x0f, 0x0f], 
-   [0x0f, 0x0f], [0x0f, 0x10], [0x0f, 0x10], [0x0f, 0x10], 
-   [0x0f, 0x11], [0x10, 0x0f], [0x10, 0x0f], [0x11, 0x0e], 
-   [0x10, 0x10], [0x10, 0x10], [0x10, 0x11], [0x10, 0x11], 
-   [0x11, 0x10], [0x11, 0x10], [0x11, 0x10], [0x12, 0x0f], 
-   [0x11, 0x11], [0x11, 0x11], [0x11, 0x12], [0x10, 0x14], 
-   [0x12, 0x11], [0x12, 0x11], [0x12, 0x11], [0x12, 0x12], 
-   [0x12, 0x12], [0x12, 0x12], [0x12, 0x13], [0x11, 0x15], 
-   [0x13, 0x12], [0x13, 0x12], [0x14, 0x10], [0x13, 0x13], 
-   [0x13, 0x13], [0x13, 0x13], [0x13, 0x14], [0x13, 0x14], 
-   [0x13, 0x14], [0x13, 0x15], [0x14, 0x13], [0x14, 0x13], 
-   [0x15, 0x12], [0x14, 0x14], [0x14, 0x14], [0x14, 0x15], 
-   [0x14, 0x15], [0x15, 0x14], [0x15, 0x14], [0x15, 0x14], 
-   [0x16, 0x13], [0x15, 0x15], [0x15, 0x15], [0x15, 0x16], 
-   [0x14, 0x18], [0x16, 0x15], [0x16, 0x15], [0x16, 0x15], 
-   [0x16, 0x16], [0x16, 0x16], [0x16, 0x16], [0x16, 0x17], 
-   [0x15, 0x19], [0x17, 0x16], [0x17, 0x16], [0x18, 0x14], 
-   [0x17, 0x17], [0x17, 0x17], [0x17, 0x17], [0x17, 0x18], 
-   [0x17, 0x18], [0x17, 0x18], [0x17, 0x19], [0x18, 0x17], 
-   [0x18, 0x17], [0x19, 0x16], [0x18, 0x18], [0x18, 0x18], 
-   [0x18, 0x19], [0x18, 0x19], [0x19, 0x18], [0x19, 0x18], 
-   [0x19, 0x18], [0x1a, 0x17], [0x19, 0x19], [0x19, 0x19], 
-   [0x19, 0x1a], [0x18, 0x1c], [0x1a, 0x19], [0x1a, 0x19], 
-   [0x1a, 0x19], [0x1a, 0x1a], [0x1a, 0x1a], [0x1a, 0x1a], 
-   [0x1a, 0x1b], [0x19, 0x1d], [0x1b, 0x1a], [0x1b, 0x1a], 
-   [0x1c, 0x18], [0x1b, 0x1b], [0x1b, 0x1b], [0x1b, 0x1b], 
-   [0x1b, 0x1c], [0x1b, 0x1c], [0x1b, 0x1c], [0x1b, 0x1d], 
-   [0x1c, 0x1b], [0x1c, 0x1b], [0x1d, 0x1a], [0x1c, 0x1c], 
-   [0x1c, 0x1c], [0x1c, 0x1d], [0x1c, 0x1d], [0x1d, 0x1c], 
-   [0x1d, 0x1c], [0x1d, 0x1c], [0x1e, 0x1b], [0x1d, 0x1d], 
-   [0x1d, 0x1d], [0x1d, 0x1e], [0x1d, 0x1e], [0x1e, 0x1d], 
-   [0x1e, 0x1d], [0x1e, 0x1d], [0x1e, 0x1e], [0x1e, 0x1e], 
-   [0x1e, 0x1e], [0x1e, 0x1f], [0x1e, 0x1f], [0x1f, 0x1e], 
-   [0x1f, 0x1e], [0x1f, 0x1e], [0x1f, 0x1f], [0x1f, 0x1f] ]
+omatch5 = [
+    [0x00, 0x00], [0x00, 0x00], [0x00, 0x01], [0x00, 0x01], 
+    [0x01, 0x00], [0x01, 0x00], [0x01, 0x00], [0x01, 0x01], 
+    [0x01, 0x01], [0x01, 0x01], [0x01, 0x02], [0x00, 0x04], 
+    [0x02, 0x01], [0x02, 0x01], [0x02, 0x01], [0x02, 0x02], 
+    [0x02, 0x02], [0x02, 0x02], [0x02, 0x03], [0x01, 0x05], 
+    [0x03, 0x02], [0x03, 0x02], [0x04, 0x00], [0x03, 0x03], 
+    [0x03, 0x03], [0x03, 0x03], [0x03, 0x04], [0x03, 0x04], 
+    [0x03, 0x04], [0x03, 0x05], [0x04, 0x03], [0x04, 0x03], 
+    [0x05, 0x02], [0x04, 0x04], [0x04, 0x04], [0x04, 0x05], 
+    [0x04, 0x05], [0x05, 0x04], [0x05, 0x04], [0x05, 0x04], 
+    [0x06, 0x03], [0x05, 0x05], [0x05, 0x05], [0x05, 0x06], 
+    [0x04, 0x08], [0x06, 0x05], [0x06, 0x05], [0x06, 0x05], 
+    [0x06, 0x06], [0x06, 0x06], [0x06, 0x06], [0x06, 0x07], 
+    [0x05, 0x09], [0x07, 0x06], [0x07, 0x06], [0x08, 0x04], 
+    [0x07, 0x07], [0x07, 0x07], [0x07, 0x07], [0x07, 0x08], 
+    [0x07, 0x08], [0x07, 0x08], [0x07, 0x09], [0x08, 0x07], 
+    [0x08, 0x07], [0x09, 0x06], [0x08, 0x08], [0x08, 0x08], 
+    [0x08, 0x09], [0x08, 0x09], [0x09, 0x08], [0x09, 0x08], 
+    [0x09, 0x08], [0x0a, 0x07], [0x09, 0x09], [0x09, 0x09], 
+    [0x09, 0x0a], [0x08, 0x0c], [0x0a, 0x09], [0x0a, 0x09], 
+    [0x0a, 0x09], [0x0a, 0x0a], [0x0a, 0x0a], [0x0a, 0x0a], 
+    [0x0a, 0x0b], [0x09, 0x0d], [0x0b, 0x0a], [0x0b, 0x0a], 
+    [0x0c, 0x08], [0x0b, 0x0b], [0x0b, 0x0b], [0x0b, 0x0b], 
+    [0x0b, 0x0c], [0x0b, 0x0c], [0x0b, 0x0c], [0x0b, 0x0d], 
+    [0x0c, 0x0b], [0x0c, 0x0b], [0x0d, 0x0a], [0x0c, 0x0c], 
+    [0x0c, 0x0c], [0x0c, 0x0d], [0x0c, 0x0d], [0x0d, 0x0c], 
+    [0x0d, 0x0c], [0x0d, 0x0c], [0x0e, 0x0b], [0x0d, 0x0d], 
+    [0x0d, 0x0d], [0x0d, 0x0e], [0x0c, 0x10], [0x0e, 0x0d], 
+    [0x0e, 0x0d], [0x0e, 0x0d], [0x0e, 0x0e], [0x0e, 0x0e], 
+    [0x0e, 0x0e], [0x0e, 0x0f], [0x0d, 0x11], [0x0f, 0x0e], 
+    [0x0f, 0x0e], [0x10, 0x0c], [0x0f, 0x0f], [0x0f, 0x0f], 
+    [0x0f, 0x0f], [0x0f, 0x10], [0x0f, 0x10], [0x0f, 0x10], 
+    [0x0f, 0x11], [0x10, 0x0f], [0x10, 0x0f], [0x11, 0x0e], 
+    [0x10, 0x10], [0x10, 0x10], [0x10, 0x11], [0x10, 0x11], 
+    [0x11, 0x10], [0x11, 0x10], [0x11, 0x10], [0x12, 0x0f], 
+    [0x11, 0x11], [0x11, 0x11], [0x11, 0x12], [0x10, 0x14], 
+    [0x12, 0x11], [0x12, 0x11], [0x12, 0x11], [0x12, 0x12], 
+    [0x12, 0x12], [0x12, 0x12], [0x12, 0x13], [0x11, 0x15], 
+    [0x13, 0x12], [0x13, 0x12], [0x14, 0x10], [0x13, 0x13], 
+    [0x13, 0x13], [0x13, 0x13], [0x13, 0x14], [0x13, 0x14], 
+    [0x13, 0x14], [0x13, 0x15], [0x14, 0x13], [0x14, 0x13], 
+    [0x15, 0x12], [0x14, 0x14], [0x14, 0x14], [0x14, 0x15], 
+    [0x14, 0x15], [0x15, 0x14], [0x15, 0x14], [0x15, 0x14], 
+    [0x16, 0x13], [0x15, 0x15], [0x15, 0x15], [0x15, 0x16], 
+    [0x14, 0x18], [0x16, 0x15], [0x16, 0x15], [0x16, 0x15], 
+    [0x16, 0x16], [0x16, 0x16], [0x16, 0x16], [0x16, 0x17], 
+    [0x15, 0x19], [0x17, 0x16], [0x17, 0x16], [0x18, 0x14], 
+    [0x17, 0x17], [0x17, 0x17], [0x17, 0x17], [0x17, 0x18], 
+    [0x17, 0x18], [0x17, 0x18], [0x17, 0x19], [0x18, 0x17], 
+    [0x18, 0x17], [0x19, 0x16], [0x18, 0x18], [0x18, 0x18], 
+    [0x18, 0x19], [0x18, 0x19], [0x19, 0x18], [0x19, 0x18], 
+    [0x19, 0x18], [0x1a, 0x17], [0x19, 0x19], [0x19, 0x19], 
+    [0x19, 0x1a], [0x18, 0x1c], [0x1a, 0x19], [0x1a, 0x19], 
+    [0x1a, 0x19], [0x1a, 0x1a], [0x1a, 0x1a], [0x1a, 0x1a], 
+    [0x1a, 0x1b], [0x19, 0x1d], [0x1b, 0x1a], [0x1b, 0x1a], 
+    [0x1c, 0x18], [0x1b, 0x1b], [0x1b, 0x1b], [0x1b, 0x1b], 
+    [0x1b, 0x1c], [0x1b, 0x1c], [0x1b, 0x1c], [0x1b, 0x1d], 
+    [0x1c, 0x1b], [0x1c, 0x1b], [0x1d, 0x1a], [0x1c, 0x1c], 
+    [0x1c, 0x1c], [0x1c, 0x1d], [0x1c, 0x1d], [0x1d, 0x1c], 
+    [0x1d, 0x1c], [0x1d, 0x1c], [0x1e, 0x1b], [0x1d, 0x1d], 
+    [0x1d, 0x1d], [0x1d, 0x1e], [0x1d, 0x1e], [0x1e, 0x1d], 
+    [0x1e, 0x1d], [0x1e, 0x1d], [0x1e, 0x1e], [0x1e, 0x1e], 
+    [0x1e, 0x1e], [0x1e, 0x1f], [0x1e, 0x1f], [0x1f, 0x1e], 
+    [0x1f, 0x1e], [0x1f, 0x1e], [0x1f, 0x1f], [0x1f, 0x1f]
+]
    
-omatch6 = [ [0x00, 0x00], [0x00, 0x01], [0x01, 0x00], [0x01, 0x01], 
-   [0x01, 0x01], [0x01, 0x02], [0x02, 0x01], [0x02, 0x02], 
-   [0x02, 0x02], [0x02, 0x03], [0x03, 0x02], [0x03, 0x03], 
-   [0x03, 0x03], [0x03, 0x04], [0x04, 0x03], [0x04, 0x04], 
-   [0x04, 0x04], [0x04, 0x05], [0x05, 0x04], [0x05, 0x05], 
-   [0x05, 0x05], [0x05, 0x06], [0x06, 0x05], [0x00, 0x11], 
-   [0x06, 0x06], [0x06, 0x07], [0x07, 0x06], [0x02, 0x10], 
-   [0x07, 0x07], [0x07, 0x08], [0x08, 0x07], [0x03, 0x11], 
-   [0x08, 0x08], [0x08, 0x09], [0x09, 0x08], [0x05, 0x10], 
-   [0x09, 0x09], [0x09, 0x0a], [0x0a, 0x09], [0x06, 0x11], 
-   [0x0a, 0x0a], [0x0a, 0x0b], [0x0b, 0x0a], [0x08, 0x10], 
-   [0x0b, 0x0b], [0x0b, 0x0c], [0x0c, 0x0b], [0x09, 0x11], 
-   [0x0c, 0x0c], [0x0c, 0x0d], [0x0d, 0x0c], [0x0b, 0x10], 
-   [0x0d, 0x0d], [0x0d, 0x0e], [0x0e, 0x0d], [0x0c, 0x11], 
-   [0x0e, 0x0e], [0x0e, 0x0f], [0x0f, 0x0e], [0x0e, 0x10], 
-   [0x0f, 0x0f], [0x0f, 0x10], [0x10, 0x0e], [0x10, 0x0f], 
-   [0x11, 0x0e], [0x10, 0x10], [0x10, 0x11], [0x11, 0x10], 
-   [0x12, 0x0f], [0x11, 0x11], [0x11, 0x12], [0x12, 0x11], 
-   [0x14, 0x0e], [0x12, 0x12], [0x12, 0x13], [0x13, 0x12], 
-   [0x15, 0x0f], [0x13, 0x13], [0x13, 0x14], [0x14, 0x13], 
-   [0x17, 0x0e], [0x14, 0x14], [0x14, 0x15], [0x15, 0x14], 
-   [0x18, 0x0f], [0x15, 0x15], [0x15, 0x16], [0x16, 0x15], 
-   [0x1a, 0x0e], [0x16, 0x16], [0x16, 0x17], [0x17, 0x16], 
-   [0x1b, 0x0f], [0x17, 0x17], [0x17, 0x18], [0x18, 0x17], 
-   [0x13, 0x21], [0x18, 0x18], [0x18, 0x19], [0x19, 0x18], 
-   [0x15, 0x20], [0x19, 0x19], [0x19, 0x1a], [0x1a, 0x19], 
-   [0x16, 0x21], [0x1a, 0x1a], [0x1a, 0x1b], [0x1b, 0x1a], 
-   [0x18, 0x20], [0x1b, 0x1b], [0x1b, 0x1c], [0x1c, 0x1b], 
-   [0x19, 0x21], [0x1c, 0x1c], [0x1c, 0x1d], [0x1d, 0x1c], 
-   [0x1b, 0x20], [0x1d, 0x1d], [0x1d, 0x1e], [0x1e, 0x1d], 
-   [0x1c, 0x21], [0x1e, 0x1e], [0x1e, 0x1f], [0x1f, 0x1e], 
-   [0x1e, 0x20], [0x1f, 0x1f], [0x1f, 0x20], [0x20, 0x1e], 
-   [0x20, 0x1f], [0x21, 0x1e], [0x20, 0x20], [0x20, 0x21], 
-   [0x21, 0x20], [0x22, 0x1f], [0x21, 0x21], [0x21, 0x22], 
-   [0x22, 0x21], [0x24, 0x1e], [0x22, 0x22], [0x22, 0x23], 
-   [0x23, 0x22], [0x25, 0x1f], [0x23, 0x23], [0x23, 0x24], 
-   [0x24, 0x23], [0x27, 0x1e], [0x24, 0x24], [0x24, 0x25], 
-   [0x25, 0x24], [0x28, 0x1f], [0x25, 0x25], [0x25, 0x26], 
-   [0x26, 0x25], [0x2a, 0x1e], [0x26, 0x26], [0x26, 0x27], 
-   [0x27, 0x26], [0x2b, 0x1f], [0x27, 0x27], [0x27, 0x28], 
-   [0x28, 0x27], [0x23, 0x31], [0x28, 0x28], [0x28, 0x29], 
-   [0x29, 0x28], [0x25, 0x30], [0x29, 0x29], [0x29, 0x2a], 
-   [0x2a, 0x29], [0x26, 0x31], [0x2a, 0x2a], [0x2a, 0x2b], 
-   [0x2b, 0x2a], [0x28, 0x30], [0x2b, 0x2b], [0x2b, 0x2c], 
-   [0x2c, 0x2b], [0x29, 0x31], [0x2c, 0x2c], [0x2c, 0x2d], 
-   [0x2d, 0x2c], [0x2b, 0x30], [0x2d, 0x2d], [0x2d, 0x2e], 
-   [0x2e, 0x2d], [0x2c, 0x31], [0x2e, 0x2e], [0x2e, 0x2f], 
-   [0x2f, 0x2e], [0x2e, 0x30], [0x2f, 0x2f], [0x2f, 0x30], 
-   [0x30, 0x2e], [0x30, 0x2f], [0x31, 0x2e], [0x30, 0x30], 
-   [0x30, 0x31], [0x31, 0x30], [0x32, 0x2f], [0x31, 0x31], 
-   [0x31, 0x32], [0x32, 0x31], [0x34, 0x2e], [0x32, 0x32], 
-   [0x32, 0x33], [0x33, 0x32], [0x35, 0x2f], [0x33, 0x33], 
-   [0x33, 0x34], [0x34, 0x33], [0x37, 0x2e], [0x34, 0x34], 
-   [0x34, 0x35], [0x35, 0x34], [0x38, 0x2f], [0x35, 0x35], 
-   [0x35, 0x36], [0x36, 0x35], [0x3a, 0x2e], [0x36, 0x36], 
-   [0x36, 0x37], [0x37, 0x36], [0x3b, 0x2f], [0x37, 0x37], 
-   [0x37, 0x38], [0x38, 0x37], [0x3d, 0x2e], [0x38, 0x38], 
-   [0x38, 0x39], [0x39, 0x38], [0x3e, 0x2f], [0x39, 0x39], 
-   [0x39, 0x3a], [0x3a, 0x39], [0x3a, 0x3a], [0x3a, 0x3a], 
-   [0x3a, 0x3b], [0x3b, 0x3a], [0x3b, 0x3b], [0x3b, 0x3b], 
-   [0x3b, 0x3c], [0x3c, 0x3b], [0x3c, 0x3c], [0x3c, 0x3c], 
-   [0x3c, 0x3d], [0x3d, 0x3c], [0x3d, 0x3d], [0x3d, 0x3d], 
-   [0x3d, 0x3e], [0x3e, 0x3d], [0x3e, 0x3e], [0x3e, 0x3e], 
-   [0x3e, 0x3f], [0x3f, 0x3e], [0x3f, 0x3f], [0x3f, 0x3f] ]
+omatch6 = [
+    [0x00, 0x00], [0x00, 0x01], [0x01, 0x00], [0x01, 0x01], 
+    [0x01, 0x01], [0x01, 0x02], [0x02, 0x01], [0x02, 0x02], 
+    [0x02, 0x02], [0x02, 0x03], [0x03, 0x02], [0x03, 0x03], 
+    [0x03, 0x03], [0x03, 0x04], [0x04, 0x03], [0x04, 0x04], 
+    [0x04, 0x04], [0x04, 0x05], [0x05, 0x04], [0x05, 0x05], 
+    [0x05, 0x05], [0x05, 0x06], [0x06, 0x05], [0x00, 0x11], 
+    [0x06, 0x06], [0x06, 0x07], [0x07, 0x06], [0x02, 0x10], 
+    [0x07, 0x07], [0x07, 0x08], [0x08, 0x07], [0x03, 0x11], 
+    [0x08, 0x08], [0x08, 0x09], [0x09, 0x08], [0x05, 0x10], 
+    [0x09, 0x09], [0x09, 0x0a], [0x0a, 0x09], [0x06, 0x11], 
+    [0x0a, 0x0a], [0x0a, 0x0b], [0x0b, 0x0a], [0x08, 0x10], 
+    [0x0b, 0x0b], [0x0b, 0x0c], [0x0c, 0x0b], [0x09, 0x11], 
+    [0x0c, 0x0c], [0x0c, 0x0d], [0x0d, 0x0c], [0x0b, 0x10], 
+    [0x0d, 0x0d], [0x0d, 0x0e], [0x0e, 0x0d], [0x0c, 0x11], 
+    [0x0e, 0x0e], [0x0e, 0x0f], [0x0f, 0x0e], [0x0e, 0x10], 
+    [0x0f, 0x0f], [0x0f, 0x10], [0x10, 0x0e], [0x10, 0x0f], 
+    [0x11, 0x0e], [0x10, 0x10], [0x10, 0x11], [0x11, 0x10], 
+    [0x12, 0x0f], [0x11, 0x11], [0x11, 0x12], [0x12, 0x11], 
+    [0x14, 0x0e], [0x12, 0x12], [0x12, 0x13], [0x13, 0x12], 
+    [0x15, 0x0f], [0x13, 0x13], [0x13, 0x14], [0x14, 0x13], 
+    [0x17, 0x0e], [0x14, 0x14], [0x14, 0x15], [0x15, 0x14], 
+    [0x18, 0x0f], [0x15, 0x15], [0x15, 0x16], [0x16, 0x15], 
+    [0x1a, 0x0e], [0x16, 0x16], [0x16, 0x17], [0x17, 0x16], 
+    [0x1b, 0x0f], [0x17, 0x17], [0x17, 0x18], [0x18, 0x17], 
+    [0x13, 0x21], [0x18, 0x18], [0x18, 0x19], [0x19, 0x18], 
+    [0x15, 0x20], [0x19, 0x19], [0x19, 0x1a], [0x1a, 0x19], 
+    [0x16, 0x21], [0x1a, 0x1a], [0x1a, 0x1b], [0x1b, 0x1a], 
+    [0x18, 0x20], [0x1b, 0x1b], [0x1b, 0x1c], [0x1c, 0x1b], 
+    [0x19, 0x21], [0x1c, 0x1c], [0x1c, 0x1d], [0x1d, 0x1c], 
+    [0x1b, 0x20], [0x1d, 0x1d], [0x1d, 0x1e], [0x1e, 0x1d], 
+    [0x1c, 0x21], [0x1e, 0x1e], [0x1e, 0x1f], [0x1f, 0x1e], 
+    [0x1e, 0x20], [0x1f, 0x1f], [0x1f, 0x20], [0x20, 0x1e], 
+    [0x20, 0x1f], [0x21, 0x1e], [0x20, 0x20], [0x20, 0x21], 
+    [0x21, 0x20], [0x22, 0x1f], [0x21, 0x21], [0x21, 0x22], 
+    [0x22, 0x21], [0x24, 0x1e], [0x22, 0x22], [0x22, 0x23], 
+    [0x23, 0x22], [0x25, 0x1f], [0x23, 0x23], [0x23, 0x24], 
+    [0x24, 0x23], [0x27, 0x1e], [0x24, 0x24], [0x24, 0x25], 
+    [0x25, 0x24], [0x28, 0x1f], [0x25, 0x25], [0x25, 0x26], 
+    [0x26, 0x25], [0x2a, 0x1e], [0x26, 0x26], [0x26, 0x27], 
+    [0x27, 0x26], [0x2b, 0x1f], [0x27, 0x27], [0x27, 0x28], 
+    [0x28, 0x27], [0x23, 0x31], [0x28, 0x28], [0x28, 0x29], 
+    [0x29, 0x28], [0x25, 0x30], [0x29, 0x29], [0x29, 0x2a], 
+    [0x2a, 0x29], [0x26, 0x31], [0x2a, 0x2a], [0x2a, 0x2b], 
+    [0x2b, 0x2a], [0x28, 0x30], [0x2b, 0x2b], [0x2b, 0x2c], 
+    [0x2c, 0x2b], [0x29, 0x31], [0x2c, 0x2c], [0x2c, 0x2d], 
+    [0x2d, 0x2c], [0x2b, 0x30], [0x2d, 0x2d], [0x2d, 0x2e], 
+    [0x2e, 0x2d], [0x2c, 0x31], [0x2e, 0x2e], [0x2e, 0x2f], 
+    [0x2f, 0x2e], [0x2e, 0x30], [0x2f, 0x2f], [0x2f, 0x30], 
+    [0x30, 0x2e], [0x30, 0x2f], [0x31, 0x2e], [0x30, 0x30], 
+    [0x30, 0x31], [0x31, 0x30], [0x32, 0x2f], [0x31, 0x31], 
+    [0x31, 0x32], [0x32, 0x31], [0x34, 0x2e], [0x32, 0x32], 
+    [0x32, 0x33], [0x33, 0x32], [0x35, 0x2f], [0x33, 0x33], 
+    [0x33, 0x34], [0x34, 0x33], [0x37, 0x2e], [0x34, 0x34], 
+    [0x34, 0x35], [0x35, 0x34], [0x38, 0x2f], [0x35, 0x35], 
+    [0x35, 0x36], [0x36, 0x35], [0x3a, 0x2e], [0x36, 0x36], 
+    [0x36, 0x37], [0x37, 0x36], [0x3b, 0x2f], [0x37, 0x37], 
+    [0x37, 0x38], [0x38, 0x37], [0x3d, 0x2e], [0x38, 0x38], 
+    [0x38, 0x39], [0x39, 0x38], [0x3e, 0x2f], [0x39, 0x39], 
+    [0x39, 0x3a], [0x3a, 0x39], [0x3a, 0x3a], [0x3a, 0x3a], 
+    [0x3a, 0x3b], [0x3b, 0x3a], [0x3b, 0x3b], [0x3b, 0x3b], 
+    [0x3b, 0x3c], [0x3c, 0x3b], [0x3c, 0x3c], [0x3c, 0x3c], 
+    [0x3c, 0x3d], [0x3d, 0x3c], [0x3d, 0x3d], [0x3d, 0x3d], 
+    [0x3d, 0x3e], [0x3e, 0x3d], [0x3e, 0x3e], [0x3e, 0x3e], 
+    [0x3e, 0x3f], [0x3f, 0x3e], [0x3f, 0x3f], [0x3f, 0x3f]
+]
         
-def complt_vec4( a, b ):
-        return((a.x < b.x) or (a.y < b.y) or (a.z < b.z) or (a.w < b.w))
+def cmplt_vec4( a, b ):
+    return( ( a.x < b.x ) or ( a.y < b.y ) or ( a.z < b.z ) or ( a.w < b.w ) )
 
-def set_vec4( v, x, y, z, w ):
-    v.x = x
-    v.y = y
-    v.z = z
-    v.w = w
+def set_vec4( x, y, z, w ):
+    v = vec4_t( x, y, z, w )
     return v
     
-def set1_vec4_const( x ):
+def set1_vec4( x ):
     v = vec4_t( x, x, x, x )
-    return v    
-    
-def set1_vec4( v, x ):
-    v.x = x
-    v.y = x
-    v.z = x
-    v.w = x
     return v
 
 def rcp_vec4( v ):   
@@ -707,56 +704,59 @@ def rcp_vec4( v ):
     return (one / v)
 
 def min_vec4( a, b ):
-    return set_vec4( a, min( a.x, b.x ), min( a.y, b.y ), min( a.z, b.z ), min( a.w, b.w ) )
+    return (set_vec4(min(a.x, b.x), min(a.y, b.y), min(a.z, b.z), min(a.w, b.w)))
     
 def max_vec4( a, b ):
-    return set_vec4( a, max( a.x, b.x ), max( a.y, b.y ), max( a.z, b.z ), max( a.w, b.w ) )
-    
-def min_vec4_embedded( a, b ):
-    return set_vec4( a, min( a.x, b.x ), min( a.y, b.y ), min( a.z, b.z ), min( a.w, b.w ) )
-    
-def max_vec4_embedded( a, b ):
-    return set_vec4( a, max( a.x, b.x ), max( a.y, b.y ), max( a.z, b.z ), max( a.w, b.w ) )
+    return (set_vec4(max(a.x, b.x), max(a.y, b.y), max(a.z, b.z), max(a.w, b.w)))
 
 def accum_vec4( v ):
     return (v.x + v.y + v.z + v.w)
 
 def dot_vec4( a, b ):
-    return accum_vec4(a * b)
+    return accum_vec4( a * b )
     
+def splatx_vec4( v ):
+    v.x = v.x
+    v.y = v.x
+    v.z = v.x
+    v.w = v.x
+    return v
+
+def splatx_vec4( v ):
+    v.x = v.y
+    v.y = v.y
+    v.z = v.y
+    v.w = v.y
+    return v
+
 def splatz_vec4( v ):
     v.x = v.z
     v.y = v.z
+    v.z = v.z
     v.w = v.z
     return v
 
 def trunc_vec4( v ):
-   
-   v0 = 0.0
-   v1 = 0.0
-   v2 = 0.0
-   v3 = 0.0
-   
    if v.x > 0.0:
        v0 = math.floor(v.x)
    else:
        v0 = math.ceil(v.x)
-       
+
    if v.y > 0.0:
        v1 = math.floor(v.y)
    else:
        v1 = math.ceil(v.y)
-       
+
    if v.z > 0.0:
        v2 = math.floor(v.z)
    else:
        v2 = math.ceil(v.z)
-       
+
    if v.w > 0.0:
        v3 = math.floor(v.w)
    else:
        v3 = math.ceil(v.w)
-   
+
    r = vec4_t( v0, v1, v2, v3 )
    
    return r
@@ -771,49 +771,50 @@ class dxtblock:
     """DXT block class"""
     
     def __init__( self ):
-        self.single = 0;
-        self.alphamask = 0;
-        self.points = [ vec4_t() ] * 16;
-        self.palette = [ vec4_t() ] * 4;
-        self.max = vec4_t();
-        self.min = vec4_t();
-        self.metric = vec4_t();
+        self.single = 1
+        self.alphamask = 0
+        self.points = [ vec4_t() ] * 16
+        self.palette = [ vec4_t() ] * 4
+        self.vmax = vec4_t()
+        self.vmin = vec4_t()
+        self.metric = vec4_t()
 
-def getlong24( buf, p = 0 ):
-    return (((buf)[p]) | ((buf)[p+1] <<  8) | ((buf)[p+2] << 16))
-    
-def getlong24_int( buf ):
-    return buf | (buf << 8 | buf << 16)
+def getlong24( buf, pos = 0 ):
+    return ( ( buf[ pos ] ) | ( buf[ pos + 1 ] << 8) | ( buf[ pos + 2 ] << 16 ) ).to_bytes( 8, byteorder='big' )
     
 def putlong16( buf, s, pos ):
-    buf[pos]   = ( ( s )      ) & 0xff
-    buf[pos+1]   = ( ( s ) >> 8 ) & 0xff
-
-    # buf[0] = ((s)) & 0xff
-    # buf[1] = ((s) >> 8) & 0xff
+    buf[pos:pos+1]   = ( ( ( s ) ) & 0xff ).to_bytes( 1, byteorder='big' )
+    buf[pos+1:pos+2] = ( ( ( s ) >> 8 ) & 0xff ).to_bytes( 1, byteorder='big' )
     
-def putlong32( buf, l, pos ):
-    buf[pos]   = ( ( l ) ) & 0xff
-    buf[pos+1] = ( ( l ) >> 8 ) & 0xff
-    buf[pos+2] = ( ( l ) >> 16 ) & 0xff
-    buf[pos+3] = ( ( l ) >> 24 ) & 0xff
+# Missi: equivalent to C's uint32_t/unsigned int
+def putlong32( buf, l, pos ):   
+    buf[pos:pos+1]   = ( ( ( l ) ) & 0xff ).to_bytes( 1, byteorder='big' )
+    buf[pos+1:pos+2] = ( ( ( l ) >> 8 ) & 0xff ).to_bytes( 1, byteorder='big' )
+    buf[pos+2:pos+3] = ( ( ( l ) >> 16 ) & 0xff ).to_bytes( 1, byteorder='big' )
+    buf[pos+3:pos+4] = ( ( ( l ) >> 24 ) & 0xff ).to_bytes( 1, byteorder='big' )
 
 def compress_BC1( dest, src, w, h, flags ):
     
     block_num = block_count(w, h)
-    block = np.empty( 64, dtype=np.ubyte )
+    block = bytearray( 64 )
     
-    for i in range( 1, block_num ):
+    for i in range( 0, block_num ):
         x = int(i % ((w + 3) >> 2)) << 2;
         y = int(i / ((w + 3) >> 2)) << 2;
         
-        #p = np.empty( block_offset(x, y, w, 8), dtype=np.ubyte )
-        
-        extract_block(src, x, y, w, h, block);
-        
         pos = block_offset(x, y, w, 8)
-        
+        extract_block(src, x, y, w, h, block);
         encode_color_block(dest, block, DXT_BC1 | flags, pos);
+
+def mul8bit( a, b ):
+   t = a * b + 128;
+   return ((t + (t >> 8)) >> 8)
+
+def pack_rgba4( r, g, b, a ):
+    return ((mul8bit(a, 15) << 12) |
+            (mul8bit(r, 15) <<  8) |
+            (mul8bit(g, 15) <<  4) |
+            (mul8bit(b, 15)      ))
 
 def convert_pixels( dest, src, format, w, h, d, bpp, palette, mipmaps ):
     num_pixels = 0
@@ -828,7 +829,7 @@ def convert_pixels( dest, src, format, w, h, d, bpp, palette, mipmaps ):
 
     for i in range( 0, num_pixels ):
         if bpp == 1:
-            if palette:
+            if palette != None:
                 r = palette[3 * src[i] + 0]
                 g = palette[3 * src[i] + 1]
                 b = palette[3 * src[i] + 2]
@@ -858,67 +859,56 @@ def convert_pixels( dest, src, format, w, h, d, bpp, palette, mipmaps ):
                 dest[3 * i + 1] = g;
                 dest[3 * i + 2] = r;
                 dest[3 * i + 0] = b;
-                break;
             case 2:
                 dest[4 * i + 0] = b;
                 dest[4 * i + 1] = g;
                 dest[4 * i + 2] = r;
                 dest[4 * i + 3] = a;
-                break;
             case 3:
                 dest[3 * i + 0] = r;
                 dest[3 * i + 1] = g;
                 dest[3 * i + 2] = b;
-                break;
             case 4:
                 dest[4 * i + 0] = r;
                 dest[4 * i + 1] = g;
                 dest[4 * i + 2] = b;
                 dest[4 * i + 3] = a;
-                break;
             case 5:
                 putlong16(dest[2 * i], pack_r5g6b5(r, g, b));
-                break;
             case 6:
-                putlong16(dest[2 * i], pack_rgba4(r, g, b, a));
-                break;
+                putlong16(dest, pack_rgba4(r, g, b, a), 2 * i);
             case 7:
                 putlong16(dest[2 * i], pack_rgb5a1(r, g, b, a));
-                break;
             case 8:
                 putlong32(dest[4 * i], pack_rgb10a2(r, g, b, a));
-                break;
             case 9:
                 dest[i] = pack_r3g3b2(r, g, b);
-                break;
             case 10:
                 dest[i] = a;
-                break;
             case 11:
                 dest[i] = rgb_to_luminance(r, g, b);
-                break;
             case 12:
                 dest[2 * i + 0] = rgb_to_luminance(r, g, b);
                 dest[2 * i + 1] = a;
-                break;
             case 13:
                 dest[4 * i] = a;
                 RGB_to_YCoCg(dest[4 * i], r, g, b);
-                break;
             case 14:
                 alpha_exp(dest[4 * i], r, g, b, a);
-                break;
-            case _:
-                break;
+            
+        
+    
 
 
 def extract_block( src, x, y, w, h, block ):
     bw = min(w - x, 4)
     bh = min(h - y, 4)
-    rem = [0, 0, 0, 0,
+    rem = [
+    0, 0, 0, 0,
     0, 1, 0, 1,
     0, 1, 2, 0,
-    0, 1, 2, 3]
+    0, 1, 2, 3
+    ]
     
     #print( 'extracting DXT block x: {} y: {} w: {} h: {}'.format( x, y, w, h ) )
     
@@ -940,26 +930,23 @@ def extract_block( src, x, y, w, h, block ):
     # }
     
     for i in range( 0, 4 ):
-        by = rem[(bh - 1) * 4 + i] + y;
+        by = rem[(bh - 1) * 4 + i] + y
         for j in range( 0, 4 ):
-            bx = rem[(bw - 1) * 4 + j] + x;
-            block[(i * 4 * 4) + (j * 4) + 0] = src[(by * (w * 4)) + (bx * 4) + 0];
-            block[(i * 4 * 4) + (j * 4) + 1] = src[(by * (w * 4)) + (bx * 4) + 1];
-            block[(i * 4 * 4) + (j * 4) + 2] = src[(by * (w * 4)) + (bx * 4) + 2];
-            block[(i * 4 * 4) + (j * 4) + 3] = src[(by * (w * 4)) + (bx * 4) + 3];
+            bx = rem[(bw - 1) * 4 + j] + x
+            block[(i * 4 * 4) + (j * 4) + 0] = src[(by * (w * 4)) + (bx * 4) + 0]
+            block[(i * 4 * 4) + (j * 4) + 1] = src[(by * (w * 4)) + (bx * 4) + 1]
+            block[(i * 4 * 4) + (j * 4) + 2] = src[(by * (w * 4)) + (bx * 4) + 2]
+            block[(i * 4 * 4) + (j * 4) + 3] = src[(by * (w * 4)) + (bx * 4) + 3]
 
 def get_mipmapped_size( width, height, bpp, level, num, format ):
-    w = 0
-    h = 0
+    w = width >> level;
+    h = height >> level;
+    w = max(1, w);
+    h = max(1, h);
+    w <<= 1;
+    h <<= 1;
     n = 0
     size = 0
-
-    w = width >> level
-    h = height >> level
-    w = max(1, w)
-    h = max(1, h)
-    w <<= 1
-    h <<= 1
 
     while n < num and (w != 1 or h != 1):
         if(w > 1): w >>= 1
@@ -981,16 +968,14 @@ def get_mipmapped_size( width, height, bpp, level, num, format ):
     return(size)
 
 def dxt_compress( dest, src, format, width, height, bpp, mipmaps, flags ):
-    size = 0
+
     tmp = None
-    s = 0
-    offset = 0
 
     if bpp == 1:
         # grayscale promoted to BGRA
 
         size = get_mipmapped_size(width, height, 4, 0, mipmaps, DDS_COMPRESS_NONE)
-        tmp = np.empty(size, dtype=np.ubyte)
+        tmp = bytearray( size )
 
         i = 0
 
@@ -1009,7 +994,7 @@ def dxt_compress( dest, src, format, width, height, bpp, mipmaps, flags ):
         # gray-alpha promoted to BGRA
 
         size = get_mipmapped_size(width, height, 4, 0, mipmaps, DDS_COMPRESS_NONE)
-        tmp = np.empty(size, dtype=np.ubyte)
+        tmp = bytearray( size )
         i = 0
 
         while True:
@@ -1025,7 +1010,7 @@ def dxt_compress( dest, src, format, width, height, bpp, mipmaps, flags ):
 
     elif bpp == 3:
         size = get_mipmapped_size(width, height, 4, 0, mipmaps, DDS_COMPRESS_NONE)
-        tmp = np.empty(size, dtype=np.ubyte)
+        tmp = bytearray( size )
         i = 0
 
         while True:
@@ -1039,58 +1024,53 @@ def dxt_compress( dest, src, format, width, height, bpp, mipmaps, flags ):
 
         bpp = 4
 
-    curpos = 0
-    w = width;
-    h = height;
-    s = None
+    w = width
+    h = height
     
-    if tmp != None and tmp.any():
+    if tmp != None:
         s = tmp
     else: 
         s = src
     
-    if format > DDS_COMPRESS_NONE:
-        match format:
-            case 1:
-                print('compressing to DXT1...')
-                compress_BC1(dest, s, w, h, flags)
-            case 2:
-                compress_BC2(dest, s, w, h, flags)
-            case 3:
-                compress_BC3(dest, s, w, h, flags)
-            case 4:
-                compress_BC3(dest, s, w, h, flags)
-            case 5:
-                compress_BC3(dest, s, w, h, flags)
-            case 6:
-                compress_BC3(dest, s, w, h, flags)
-            case 7:
-                compress_BC3(dest, s, w, h, flags)
-            case 8:
-                compress_BC4(dest, s, w, h)
-            case 9:
-                compress_BC5(dest, s, w, h)
-            case 10:
-                compress_YCoCg(dest, s, w, h)
-            case _:
-                compress_BC3(dest, s, w, h, flags)
-    
-    w = max(1, w >> 1);
-    h = max(1, h >> 1);
+    # for i in range( 0, mipmaps ):
+    match format:
+        case 1:
+            print('compressing to DXT1...')
+            compress_BC1(dest, s, w, h, flags)
+        case 2:
+            compress_BC2(dest, s, w, h, flags)
+        case 3:
+            compress_BC3(dest, s, w, h, flags)
+        case 4:
+            compress_BC3(dest, s, w, h, flags)
+        case 5:
+            compress_BC3(dest, s, w, h, flags)
+        case 6:
+            compress_BC3(dest, s, w, h, flags)
+        case 7:
+            compress_BC3(dest, s, w, h, flags)
+        case 8:
+            compress_BC4(dest, s, w, h)
+        case 9:
+            compress_BC5(dest, s, w, h)
+        case 10:
+            compress_YCoCg(dest, s, w, h)
+        case _:
+            compress_BC3(dest, s, w, h, flags)
 
-    if tmp != None and tmp.any(): del tmp
+    if tmp != None: del tmp
 
 def construct_palette3( dxtb ):
-    dxtb.palette[0] = dxtb.max
-    dxtb.palette[1] = dxtb.min
-    dxtb.palette[2] = (dxtb.max * V4HALF) + (dxtb.min * V4HALF)
+    dxtb.palette[0] = dxtb.vmax
+    dxtb.palette[1] = dxtb.vmin
+    dxtb.palette[2] = (dxtb.vmax * V4HALF) + (dxtb.vmin * V4HALF)
     dxtb.palette[3] = vec4_t()
    
 def construct_palette4( dxtb ):
-    dxtb.palette[0] = dxtb.max;
-    dxtb.palette[1] = dxtb.min;
-    dxtb.palette[2] = ( dxtb.max * V4TWOTHIRDS ) + ( dxtb.min * V4ONETHIRD );
-    dxtb.palette[3] = ( dxtb.max * V4ONETHIRD ) + ( dxtb.min * V4TWOTHIRDS );
+    dxtb.palette[0] = dxtb.vmax
+    dxtb.palette[1] = dxtb.vmin
+    dxtb.palette[2] = (dxtb.vmax * V4TWOTHIRDS) + (dxtb.vmin * V4ONETHIRD )
+    dxtb.palette[3] = (dxtb.vmax * V4ONETHIRD ) + (dxtb.vmin * V4TWOTHIRDS)
    
 def match_colors3( dxtb ):
     idx = 0
@@ -1131,50 +1111,38 @@ def match_colors3( dxtb ):
 def match_colors4( dxtb ):
     idx = 0
     indices = 0
-    b0 = 0
-    b1 = 0
-    b2 = 0
-    b3 = 0
-    b4 = 0
-    x0 = 0
-    x1 = 0
-    x2 = 0
-    t0 = vec4_t()
-    t1 = vec4_t()
-    t2 = vec4_t()
-    t3 = vec4_t()
-
+    
     d = [ 0.0, 0.0, 0.0, 0.0 ]
 
     # match each point to the closest color
     for i in range( 0, 16 ):
-        t0 = (dxtb.points[i] - dxtb.palette[0]) * dxtb.metric;
-        t1 = (dxtb.points[i] - dxtb.palette[1]) * dxtb.metric;
-        t2 = (dxtb.points[i] - dxtb.palette[2]) * dxtb.metric;
-        t3 = (dxtb.points[i] - dxtb.palette[3]) * dxtb.metric;
+        t0 = (dxtb.points[i] - dxtb.palette[0]) * dxtb.metric
+        t1 = (dxtb.points[i] - dxtb.palette[1]) * dxtb.metric
+        t2 = (dxtb.points[i] - dxtb.palette[2]) * dxtb.metric
+        t3 = (dxtb.points[i] - dxtb.palette[3]) * dxtb.metric
 
-        d[0] = dot_vec4(t0, t0);
-        d[1] = dot_vec4(t1, t1);
-        d[2] = dot_vec4(t2, t2);
-        d[3] = dot_vec4(t3, t3);
+        d[0] = dot_vec4(t0, t0)
+        d[1] = dot_vec4(t1, t1)
+        d[2] = dot_vec4(t2, t2)
+        d[3] = dot_vec4(t3, t3)
 
-        b0 = d[0] > d[3];
-        b1 = d[1] > d[2];
-        b2 = d[0] > d[2];
-        b3 = d[1] > d[3];
-        b4 = d[2] > d[3];
+        b0 = int( d[0] > d[3] )
+        b1 = int( d[1] > d[2] )
+        b2 = int( d[0] > d[2] )
+        b3 = int( d[1] > d[3] )
+        b4 = int( d[2] > d[3] )
 
-        x0 = b1 & b2;
-        x1 = b0 & b3;
-        x2 = b0 & b4;
+        x0 = int( b1 & b2 )
+        x1 = int( b0 & b3 )
+        x2 = int( b0 & b4 )
 
-        idx = x2 | ((x0 | x1) << 1);
-
-        indices |= (idx << (2 * i));
+        idx = x2 | ((x0 | x1) << 1)
+        
+        indices |= (idx << (2 * i))
 
     return indices;
 
-def optimize_endpoints3( dxtb, indices, max, min ):
+def optimize_endpoints3( dxtb, indices, vmax, vmin ):
     alpha = 0.0
     beta = 0.0
     alpha2_sum = vec4_t()
@@ -1197,34 +1165,33 @@ def optimize_endpoints3( dxtb, indices, max, min ):
         if (bits & 2): beta = 0.5;
         alpha = 1.0 - beta;
 
-        a = set1_vec4(a, alpha);
-        b = set1_vec4(b, beta);
+        a = set1_vec4(alpha);
+        b = set1_vec4(beta);
         alpha2_sum += a * a;
         beta2_sum += b * b;
         alphabeta_sum += a * b;
         alphax_sum += dxtb.points[i] * a;
         betax_sum  += dxtb.points[i] * b;
 
-    factor = alpha2_sum * beta2_sum - alphabeta_sum * alphabeta_sum;
-    if(complt_vec4(factor, V4EPSILON)): return;
-    factor = rcp_vec4(factor);
+    factor = alpha2_sum * beta2_sum - alphabeta_sum * alphabeta_sum
+    if cmplt_vec4(factor, V4EPSILON) == True: return
+    factor = rcp_vec4(factor)
  
-    a = (alphax_sum * beta2_sum  - betax_sum  * alphabeta_sum) * factor;
-    b = (betax_sum  * alpha2_sum - alphax_sum * alphabeta_sum) * factor;
+    a = (alphax_sum * beta2_sum  - betax_sum  * alphabeta_sum) * factor
+    b = (betax_sum  * alpha2_sum - alphax_sum * alphabeta_sum) * factor
 
     # clamp to the color space
-    a = min_vec4(V4ONE, max_vec4(V4ZERO, a));
-    b = min_vec4(V4ONE, max_vec4(V4ZERO, b));
-    a = trunc_vec4(V4GRID * a + V4HALF) * V4GRIDRCP;
-    b = trunc_vec4(V4GRID * b + V4HALF) * V4GRIDRCP;
+    a = min_vec4(V4ONE, max_vec4(V4ZERO, a))
+    b = min_vec4(V4ONE, max_vec4(V4ZERO, b))
+    a = trunc_vec4(V4GRID * a + V4HALF) * V4GRIDRCP
+    b = trunc_vec4(V4GRID * b + V4HALF) * V4GRIDRCP
 
-    max = a;
-    min = b;
+    vmax = a;
+    vmin = b;
 
 def compress3( dxtb ):
     import sys
     
-    MAX_ITERATIONS = 8
     indices = 0
     bestindices = 0
     error = 0.0
@@ -1237,11 +1204,11 @@ def compress3( dxtb ):
     indices = match_colors3(dxtb);
     bestindices = indices;
 
-    for i in range( 0, MAX_ITERATIONS ):
-        oldmax = dxtb.max;
-        oldmin = dxtb.min;
+    for i in range( 0, 8 ):
+        oldmax = dxtb.vmax;
+        oldmin = dxtb.vmin;
 
-        optimize_endpoints3( dxtb, indices, dxtb.max, dxtb.min );
+        optimize_endpoints3( dxtb, indices, dxtb.vmax, dxtb.vmin );
         construct_palette3( dxtb );
         indices = match_colors3( dxtb );
         error = compute_error3( dxtb, indices );
@@ -1250,16 +1217,13 @@ def compress3( dxtb ):
             besterror = error;
             bestindices = indices;
         else:
-            dxtb.max = oldmax;
-            dxtb.min = oldmin;
+            dxtb.vmax = oldmax;
+            dxtb.vmin = oldmin;
             break;
 
-    return(bestindices);
+    return bestindices
     
 def compute_error3( dxtb, indices ):
-    idx = 0
-    error = 0;
-    t = vec4_t()
     error = 0
 
    # compute error
@@ -1273,67 +1237,56 @@ def compute_error3( dxtb, indices ):
     return error;
     
 def compute_error4( block, indices ):
-    
-    t = vec4_t()
     error = 0
     
     for i in range( 0, 16 ):
-        idx = (indices >> (2 * i)) & 3;
-        t = (block.points[i] - block.palette[idx]) * block.metric;
-        error += dot_vec4(t, t);
-        
+        idx = ( indices >> ( 2 * i ) ) & 3
+        t = ( block.points[i] - block.palette[idx] ) * block.metric
+        error += dot_vec4( t, t )
+    
     return error
     
 def compress4( dxtb ):
     import sys
     
-    MAX_ITERATIONS = 8;
-    indices = 0 
     bestindices = 0
     error = sys.float_info.max
     besterror = sys.float_info.max;
-    oldmax = vec4_t()
-    oldmin = vec4_t()
 
-    construct_palette4( dxtb );
+    construct_palette4( dxtb )
 
-    indices = match_colors4( dxtb );
-    bestindices = indices;
+    indices = match_colors4( dxtb )
+    bestindices = indices
 
-    for i in range( 0, MAX_ITERATIONS ):
-        oldmax = dxtb.max;
-        oldmin = dxtb.min;
+    for i in range( 0, 8 ):
+        oldmax = dxtb.vmax
+        oldmin = dxtb.vmin
 
-        optimize_endpoints4(dxtb, indices, dxtb.max, dxtb.min);
-        construct_palette4(dxtb);
-        indices = match_colors4(dxtb);
-        error = compute_error4(dxtb, indices);
+        optimize_endpoints4( dxtb, indices, dxtb.vmax, dxtb.vmin )
+        construct_palette4( dxtb )
+        indices = match_colors4( dxtb )
+        error = compute_error4( dxtb, indices )
 
-        if(error < besterror):
-            besterror = error;
-            bestindices = indices;
+        if error < besterror:
+            besterror = error
+            bestindices = indices
         else:
-            dxtb.max = oldmax;
-            dxtb.min = oldmin;
-            break;
+            dxtb.vmax = oldmax
+            dxtb.vmin = oldmin
+            break
+            
+        #print( ( dxtb.vmin.x, dxtb.vmin.y, dxtb.vmin.z, dxtb.vmin.w ), (dxtb.vmax.x, dxtb.vmax.y, dxtb.vmax.z, dxtb.vmax.w ) )
 
     return bestindices
 
-   
-def optimize_endpoints4( dxtb, indices, max, min ):
-    
-    alpha = 0.0
-    beta = 0.0
+
+def optimize_endpoints4( dxtb, indices, vmax, vmin ):
     alpha2_sum = vec4_t()
     alphax_sum = vec4_t()
     beta2_sum = vec4_t()
     betax_sum = vec4_t()
-    alphabeta_sum = vec4_t()
-    a = vec4_t()
-    b = vec4_t()
-    factor = vec4_t()
-    bits = 0
-
+    alphabeta_sum = vec4_t() 
+    
     for i in range( 0, 16 ):
         bits = indices >> (2 * i);
 
@@ -1341,8 +1294,8 @@ def optimize_endpoints4( dxtb, indices, max, min ):
         if(bits & 2): beta = (1.0 + beta) / 3.0;
         alpha = 1.0 - beta;
 
-        a = set1_vec4_const(alpha);
-        b = set1_vec4_const(beta);
+        a = set1_vec4(alpha);
+        b = set1_vec4(beta);
         alpha2_sum += a * a;
         beta2_sum += b * b;
         alphabeta_sum += a * b;
@@ -1350,7 +1303,7 @@ def optimize_endpoints4( dxtb, indices, max, min ):
         betax_sum  += dxtb.points[i] * b;
 
     factor = alpha2_sum * beta2_sum - alphabeta_sum * alphabeta_sum;
-    if(complt_vec4(factor, V4EPSILON)): return
+    if(cmplt_vec4(factor, V4EPSILON)): return
     factor = rcp_vec4(factor);
 
     a = (alphax_sum * beta2_sum  - betax_sum  * alphabeta_sum) * factor;
@@ -1361,115 +1314,107 @@ def optimize_endpoints4( dxtb, indices, max, min ):
     b = min_vec4(V4ONE, max_vec4(V4ZERO, b));
     a = trunc_vec4(V4GRID * a + V4HALF) * V4GRIDRCP;
     b = trunc_vec4(V4GRID * b + V4HALF) * V4GRIDRCP;
-
-    max = a;
-    min = b;
+    
+    vmax = a;
+    vmin = b;
 
 def dxtblock_init( dxtb, block, flags ):
-    i = 0
-    c0 = 0
-    c = 0
-    bc1 = (flags & DXT_BC1)
-    x = 0.0
-    y = 0.0
-    z = 0.0
-    min1 = vec4_t(1.0, 1.0, 1.0, 1.0)
-    max1 = vec4_t()
+    bc1    = int( bool( flags & DXT_BC1 ) )
+    min1   = vec4_t( 1.0, 1.0, 1.0, 1.0 )
+    max1   = vec4_t()
     center = vec4_t()
-    t = vec4_t()
-    cov = vec4_t()
-    inset = vec4_t()
+    t      = vec4_t()
+    cov    = vec4_t()
+    inset  = vec4_t()
 
-    dxtb.single = 1;
-    dxtb.alphamask = 0;
-
-    if(flags & DXT_PERCEPTUAL):
+    if flags & DXT_PERCEPTUAL:
         # ITU-R BT.709 luma coefficents
-        set_vec4(dxtb.metric, 0.2126, 0.7152, 0.0722, 0.0)
+        dxtb.metric = set_vec4( 0.2126, 0.7152, 0.0722, 0.0 )
     else:
-        set_vec4(dxtb.metric, 1.0, 1.0, 1.0, 0.0)
+        dxtb.metric = set_vec4( 1.0, 1.0, 1.0, 0.0 )
 
     c0 = getlong24(block);
 
     for i in range( 0, 16 ):
         
-        if bc1 and (block[4 * i + 3] < 128):
-            dxtb.alphamask |= (3 << (2 * i))
+        if bc1 > 0 and ( block[ 4 * i + 3 ] < 128 ):
+            dxtb.alphamask |= ( 3 << ( 2 * i ) )
 
-        x = block[4 * i + 0] / 255.0
-        y = block[4 * i + 1] / 255.0
-        z = block[4 * i + 2] / 255.0
+        x = float( block[ 4 * i + 0 ] / 255.0 )
+        y = float( block[ 4 * i + 1 ] / 255.0 )
+        z = float( block[ 4 * i + 2 ] / 255.0 )
 
-        set_vec4(dxtb.points[i], x, y, z, 0.0)
+        dxtb.points[ i ] = set_vec4( x, y, z, 0.0 )
+        
+        #print( dxtb.points[i].x, dxtb.points[i].y, dxtb.points[i].z, dxtb.points[i].w )
 
         c = getlong24(block, 4 * i)
         
-        if dxtb.single and (c == c0): dxtb.single = 1
+        #dxtb.single = int( bool( dxtb.single > 0 and ( c == c0 ) ) )
 
     # no need to continue if this is a single color block
     if (dxtb.single > 0): return
 
-    set1_vec4( min1, 1.0 );
-    #max = vec4_zero();
-
     # get bounding box extents
     for i in range( 0, 16 ):
-        min_vec4( min1, dxtb.points[i] )
-        max_vec4( max1, dxtb.points[i] )
+        min1 = min_vec4( min1, dxtb.points[i] )
+        max1 = max_vec4( max1, dxtb.points[i] )
 
     # select diagonal  
     center = (max1 + min1) * V4HALF;
-
-    #cov = vec4_zero();
+    cov = vec4_t()
+    
     for i in range( 0, 16 ):
-        for j in range( 0, 4 ):
-            t = dxtb.points[i] - center
-            cov += t * splatz_vec4(t)
+        t = dxtb.points[i] - center
+        cov += t * splatz_vec4(t)
 
-    x0 = max1.x;
-    y0 = max1.y;
-    x1 = min1.x;
-    y1 = min1.y;
+    x0 = max1.x
+    y0 = max1.y
+    x1 = min1.x
+    y1 = min1.y
 
-    if(cov.x < 0): swap(x0, x1);
-    if(cov.y < 0): swap(y0, y1);
+    if(cov.x < 0): swap(x0, x1)
+    if(cov.y < 0): swap(y0, y1)
 
-    max1.x = x0;
-    max1.y = y0;
-    min1.x = x1;
-    min1.y = y1;
+    max1.x = x0
+    max1.y = y0
+    min1.x = x1
+    min1.y = y1
 
     # inset bounding box and clamp to [0,1]
-    
-    inset = (max1 - min1) * set1_vec4_const(1.0 / 16.0) - set1_vec4_const((8.0 / 255.0) / 16.0);
-    max1 = min_vec4(V4ONE, max_vec4(V4ZERO, max1 - inset));
-    min1 = min_vec4(V4ONE, max_vec4(V4ZERO, min1 + inset));
+    inset = (max1 - min1) * set1_vec4(1.0 / 16.0) - set1_vec4((8.0 / 255.0) / 16.0)
+    max1 = min_vec4(V4ONE, max_vec4(V4ZERO, max1 - inset))
+    min1 = min_vec4(V4ONE, max_vec4(V4ZERO, min1 + inset))
 
     # clamp to color space and save
-    dxtb.max = trunc_vec4(V4GRID * max1 + V4HALF) * V4GRIDRCP;
-    dxtb.min = trunc_vec4(V4GRID * min1 + V4HALF) * V4GRIDRCP;
+    dxtb.vmax = trunc_vec4(V4GRID * max1 + V4HALF) * V4GRIDRCP;
+    dxtb.vmin = trunc_vec4(V4GRID * min1 + V4HALF) * V4GRIDRCP;
 
+    #print( ( dxtb.vmin.x, dxtb.vmin.y, dxtb.vmin.z, dxtb.vmin.w ), (dxtb.vmax.x, dxtb.vmax.y, dxtb.vmax.z, dxtb.vmax.w ) )
+    
 def vec4_endpoints_to_565( start, end, a, b ):
-    c = np.empty( 8, dtype=np.int16)
+    c = [ 0 ] * 8
     
     ta = a * V4GRID + V4HALF
     tb = b * V4GRID + V4HALF
     
-    c[0] = int(ta.x)
-    c[1] = int(ta.y)
-    c[2] = int(ta.z)
-    c[4] = int(tb.x)
-    c[5] = int(tb.y)
-    c[6] = int(tb.z)
-    c[0] = min(31, max(0, c[0]));
-    c[1] = min(63, max(0, c[1]));
-    c[2] = min(31, max(0, c[2]));
-    c[4] = min(31, max(0, c[4]));
-    c[5] = min(63, max(0, c[5]));
-    c[6] = min(31, max(0, c[6]));
+    c[0] = int( ta.x * 31.0 )
+    c[1] = int( ta.y * 63.0 )
+    c[2] = int( ta.z * 31.0 )
+    c[4] = int( tb.x * 31.0 )
+    c[5] = int( tb.y * 63.0 )
+    c[6] = int( tb.z * 31.0 )
+    c[0] = min(31, max(0, c[0]))
+    c[1] = min(63, max(0, c[1]))
+    c[2] = min(31, max(0, c[2]))
+    c[4] = min(31, max(0, c[4]))
+    c[5] = min(63, max(0, c[5]))
+    c[6] = min(31, max(0, c[6]))
     
     start = (((c[2]) << 11) | ((c[1]) << 5) | (c[0]))
     end   = (((c[6]) << 11) | ((c[5]) << 5) | (c[4]))
+    
+    return start, end
 
 def encode_color_block( dest, block, flags, pos ):
     dxtb = dxtblock()
@@ -1485,7 +1430,6 @@ def encode_color_block( dest, block, flags, pos ):
         max16 = ( omatch5[block[2]][0] << 11 ) | ( omatch6[block[1]][0] << 5 ) | ( omatch5[block[0]][0] );
         min16 = ( omatch5[block[2]][1] << 11 ) | ( omatch6[block[1]][1] << 5 ) | ( omatch5[block[0]][1] );
 
-        #indices = 0x55555555; # 101010...
         indices = 0xaaaaaaaa; # 101010...
 
         if (flags & DXT_BC1) and dxtb.alphamask:
@@ -1495,15 +1439,13 @@ def encode_color_block( dest, block, flags, pos ):
             if(max16 > min16):
                 swap(max16, min16)
         elif max16 < min16:
-            swap(max16, min16);
-            
+            swap(max16, min16)
             #indices ^= 0x55555555; # 010101...
-            #indices ^= 0xaaaaaaaa; # 010101...
+        
+    elif (flags & DXT_BC1) and dxtb.alphamask > 0: # DXT1 compression, non-opaque block
+        indices = compress3(dxtb)
 
-    elif (flags & DXT_BC1) and dxtb.alphamask: # DXT1 compression, non-opaque block
-        indices = compress3(dxtb);
-
-        vec4_endpoints_to_565(max16, min16, dxtb.max, dxtb.min);
+        vec4_endpoints_to_565(max16, min16, dxtb.vmax, dxtb.vmin)
 
         if(max16 > min16):
             swap(max16, min16);
@@ -1514,12 +1456,14 @@ def encode_color_block( dest, block, flags, pos ):
     else:
         indices = compress4(dxtb);
 
-        vec4_endpoints_to_565(max16, min16, dxtb.max, dxtb.min);
-
+        #print( 'indices: {}'.format( indices ) )
+        max16, min16 = vec4_endpoints_to_565(max16, min16, dxtb.vmax, dxtb.vmin);
+        
         if(max16 < min16):
             swap(max16, min16)
+            print( 'swapping indices...' )
             indices ^= 0x55555555 # 010101...
-
+        
     putlong16( dest, max16, pos )
     putlong16( dest, min16, pos+2 )
     putlong32( dest, indices, pos+4 )

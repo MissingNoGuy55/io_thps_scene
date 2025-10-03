@@ -44,6 +44,7 @@ def get_triangle_strip(mesh, bm, faces, split_verts, flags): # ob):
     return strip
 
 def get_split_vert_for_loop(mesh, bm, l, flags):
+
     if flags & SECFLAGS_HAS_TEXCOORDS:
         if len(bm.loops.layers.uv):
             uvs = tuple(l[uv_layer].uv.copy().freeze() for uv_layer in bm.loops.layers.uv.values())
@@ -127,10 +128,7 @@ def _alt_split_obj(ob, context, max_radius=500, faces_per_subobject=250, preserv
         return
 
     print("Separating {}".format(ob.name))
-    
-    # Missi: removed in Blender 4.1
     #ob.data.calc_normals_split()
-    
     import bpy, bmesh, itertools
     # from mathutils.bvhtree import BVHTree
     from mathutils.kdtree import KDTree
@@ -169,6 +167,7 @@ def _alt_split_obj(ob, context, max_radius=500, faces_per_subobject=250, preserv
     init()
 
     new_meshes = []
+
     small_mesh = ob.data.copy()
     try:
         if preserve_normals:
@@ -189,13 +188,18 @@ def _alt_split_obj(ob, context, max_radius=500, faces_per_subobject=250, preserv
             for face in bm.faces:
                 face.select_set(False)
                 face.select_set(False)
-
+                
         temp_bm = bmesh.new()
         temp_bm.to_mesh(small_mesh)
 
         object_count = 0
         total_face_counter = 0
         faces_to_delete = []
+
+        #temp_bm.loops.layers.uv.active = temp_bm.loops.layers.uv.name
+
+        #print( temp_bm.loops.layers.uv.name )
+
         while face_index < total_faces:
             if deleted_faces[face_index]:
                 face_index += 1
@@ -238,16 +242,25 @@ def _alt_split_obj(ob, context, max_radius=500, faces_per_subobject=250, preserv
                 except ValueError:
                     print("weird: {} {}", face_idx, new_verts)
                 for old_loop, new_loop in zip(old_loops, new_face.loops):
-                    copy_layers2(bm, old_loop.edge, temp_bm, new_loop.edge)
-                    copy_layers2(bm, old_loop, temp_bm, new_loop)
+                    # Missi: The below function is vestigal from the Blender 2.79b version
+                    # of the addon. It half-works but fails to copy multiple UV layers,
+                    # which will mess up lightmapped materials with autosplit... copy_from
+                    # fixes the issue and makes autosplit 4x faster
+
+                    #copy_layers2(bm, old_loop.edge, temp_bm, new_loop.edge)
+                    #copy_layers2(bm, old_loop, temp_bm, new_loop)
+                    new_loop.copy_from( old_loop )
+                    
                 new_face.hide = face.hide
                 new_face.material_index = face.material_index
                 new_face.smooth = face.smooth
-                copy_layers2(bm, face, temp_bm, new_face)
+                new_face.copy_from( face )
+                #copy_layers2(bm, face, temp_bm, new_face)
 
             print("Separating! Objects: {}, Faces so far: {}\r".format(object_count, total_face_counter), end='')
 
             temp_bm.to_mesh(new_mesh)
+            new_mesh.update()
             new_meshes.append(new_mesh)
 
             if preserve_normals:
@@ -264,8 +277,8 @@ def _alt_split_obj(ob, context, max_radius=500, faces_per_subobject=250, preserv
                 new_mesh.normals_split_custom_set(custom_normals)
 
             if len(faces_to_delete) >= 15000:
-                bmesh.ops.delete(bm, geom=faces_to_delete, context='FACES_KEEP_BOUNDARY')
-                faces_to_delete = []
+                bmesh.ops.delete(bm, geom=faces_to_delete, context='FACES_KEEP_BOUNDARY') # Missi: Later Blender versions expect a context string
+                faces_to_delete.clear()
                 init()
 
         print()
@@ -282,11 +295,12 @@ def _alt_split_obj(ob, context, max_radius=500, faces_per_subobject=250, preserv
                 bm.loops.layers.float.remove(nz)
 
         new_objs = []
+
         for new_mesh in new_meshes:
             new_object = ob.copy()
             new_object.matrix_world = mathutils.Matrix.Identity(4)
             new_object.data = new_mesh
-            # context.scene.collection.objects.link(new_object)
+            #context.scene.collection.objects.link(new_object)
             new_objs.append(new_object)
 
         return new_objs
@@ -325,7 +339,9 @@ def _prepare_autosplit_objects(operator, context, target_game):
     orig_objects = []
     temporary_objects = []
     for ob in out_objects:
-        final_mesh = ob.data
+        # Missi: Once again, probably an oversight like in the exporter
+        #final_mesh = ob.data
+        final_mesh = ob.data.copy()
         
         # Use either the object settings or the export setting, depending on whether
         # 'Auto-split everything' is enabled!
@@ -381,6 +397,8 @@ def _prepare_autosplit_objects(operator, context, target_game):
         for fob in final_objs:
             fob.select_set(False)
         temporary_objects += final_objs
+
+        bpy.data.meshes.remove( final_mesh )
 
     bm.free()
 

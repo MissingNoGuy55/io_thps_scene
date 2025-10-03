@@ -202,7 +202,7 @@ def update_collision_flag_ui_properties(scene):
     global update_triggered_by_ui_updater
     update_triggered_by_ui_updater = True
     try:
-        ob = bpy.context.object #scene.objects.active
+        ob = bpy.context.view_layer.objects.active #scene.objects.active
         if not ob or ob.mode != "EDIT" or ob.type != "MESH":
             return
         bm = bmesh.from_edit_mesh(ob.data)

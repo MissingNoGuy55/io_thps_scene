@@ -51,12 +51,19 @@ def export_scn_sectors_ug2(output_file, operator=None, is_model=False):
                 lo_matrix[1][1] = ob.scale[1]
                 lo_matrix[2][2] = ob.scale[2]
 
-            final_mesh = ob.data
+            # Missi: I assume this is an oversight because this ends up making the exporter destructively triangulate everything
+            #final_mesh = ob.data
+            final_mesh = ob.data.copy()
 
             object_counter += 1
 
             bm.clear()
-            bm.from_object(ob, depsgraph)
+            
+            # Missi: This works, but it breaks autosplit. By the time this is hit, the data isn't even linked to the object.
+            # I assume this is a bug or a race condition, but this one was extremely hard to trace. from_mesh seems to work fine.
+            #bm.from_object(ob, depsgraph)
+            bm.from_mesh(final_mesh)
+
             bmesh.ops.triangulate(bm, faces=bm.faces)
             bm.to_mesh(final_mesh)
             #final_mesh.calc_normals_split()
@@ -299,6 +306,9 @@ def export_scn_sectors_ug2(output_file, operator=None, is_model=False):
                     w("I", 0)
                     w("I", 0)
 
+            # Missi: Delete the cloned mesh we made at the start of this loop
+            bpy.data.meshes.remove( final_mesh )
+
         except Exception as ex:
             raise ExportError("Failed to export scene object {}: {}".format(ob.name, str(ex))).with_traceback(ex.__traceback__)
                 
@@ -307,5 +317,4 @@ def export_scn_sectors_ug2(output_file, operator=None, is_model=False):
     w("i", object_counter)
     output_file.seek(_saved_offset)
     bm.free()
-
 

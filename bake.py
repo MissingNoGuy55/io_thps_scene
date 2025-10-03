@@ -379,16 +379,26 @@ def unbake(obj):
         raise Exception("Cannot unbake object - unable to find original materials.")
         
     # First, remove the existing mats on the object (these should be lightmapped)
-    for i in range(len(obj.material_slots)):
-        obj.active_material_index = i
-        bpy.ops.object.material_slot_remove()
+    #
+    # Missi: Old behavior. Does not work as intended any more. Causes material
+    # assignments to mess up and usually wipes the material off the last baked object
+    # when bulk-unbaking.
+    # We also should not be calling operators, but this addon probably was calling
+    # them due to some Blender 2.79b shenanigans
+    #
+    #    for i in range(len(obj.material_slots)):
+    #        obj.active_material_index = i
+    #        bpy.ops.object.material_slot_remove()
+
+    obj.data.materials.clear()
         
     for mat_name in obj["original_mats"]:
+        print( mat_name )
         if not bpy.data.materials.get(mat_name):
             raise Exception("Material {} no longer exists. Uh oh!".format(mat_name))
         _mat = bpy.data.materials.get(mat_name)
         obj.data.materials.append(_mat)
-        
+
     obj["is_baked"] = False
     obj["thug_last_bake_res"] = 0
 
@@ -656,7 +666,7 @@ def bake_hl2_lightmaps(meshes, context):
         blender_tex = get_texture(tex_name)
         blender_tex.thug_material_pass_props.blend_mode = 'vBLEND_MODE_MODULATE'
         blender_tex.image = lightmap_img_x
-            
+        
         for bakepass in range(4):
             print("**********************")
             print("Baking pass {}...".format(bakepass))
@@ -798,6 +808,9 @@ def bake_hl2_lightmaps(meshes, context):
             else:
                 slot = mat_slot.material.th_texture_slots.get(blender_tex.name)
             slot.texture = blender_tex
+            # Missi: Later Blender versions need this, or the baker will bake on top of existing lightmaps...
+            # Without this, slots will have no name in bpy
+            slot.name = blender_tex.name
             slot.uv_layer = str('Lightmap')
             slot.blend_type = 'MULTIPLY'
         print("Processed object: {}".format(obname))
@@ -1128,6 +1141,9 @@ def bake_ugplus_lightmaps(meshes, context):
             else:
                 slot = mat_slot.material.th_texture_slots.get(blender_tex.name)
             slot.texture = blender_tex
+            # Missi: Later Blender versions need this, or the baker will bake on top of existing lightmaps...
+            # Without this, slots will have no name in bpy
+            slot.name = blender_tex.name
             slot.uv_layer = str('Lightmap')
             slot.blend_type = 'MULTIPLY'
         print("Processed object: {}".format(obname))
@@ -1360,6 +1376,9 @@ def bake_thug_lightmaps(meshes, context):
             image.generated_height = img_res
             image.use_fake_user = True
             
+            # Missi: HACK: This is to get around lightmaps having no mipmaps
+            image.thug_image_props.mip_levels = 4
+            
             # Create or retrieve the lightmap texture
             tex_name = "Baked_{}".format(ob.name)
             if group_name != '':
@@ -1417,6 +1436,9 @@ def bake_thug_lightmaps(meshes, context):
             else:
                 tex_slot = blender_mat.th_texture_slots.get(blender_tex.name)
             tex_slot.texture = blender_tex
+            # Missi: Later Blender versions need this, or the baker will bake on top of existing lightmaps...
+            # Without this, slots will have no name in bpy
+            tex_slot.name = blender_tex.name
             tex_slot.uv_layer = str('Lightmap')
             tex_slot.blend_type = 'MIX'
             blender_mat.use_textures[0] = True
@@ -1550,9 +1572,10 @@ def bake_thug_lightmaps(meshes, context):
                 mat_slot.material = get_material(group_mat_name, mat_slot.material)
                 blender_tex = bpy.data.textures.get("Baked_{}".format(group_name))
             else:
-                mat_slot.material = mat_slot.material.copy()
                 blender_tex = bpy.data.textures.get("Baked_{}".format(obname))
-                
+                if not mat_slot.material.th_texture_slots.get( blender_tex.name ):
+                    mat_slot.material = mat_slot.material.copy()
+
             # Add the lightmap into the new UG+ material system, for the corresponding lightmap slot
             if scene.thug_bake_slot == 'DAY':
                 mat_slot.material.thug_material_props.ugplus_matslot_lightmap.tex_image = blender_tex.image
@@ -1569,6 +1592,9 @@ def bake_thug_lightmaps(meshes, context):
             else:
                 slot = mat_slot.material.th_texture_slots.get(blender_tex.name)
             slot.texture = blender_tex
+            # Missi: Later Blender versions need this, or the baker will bake on top of existing lightmaps...
+            # Without this, slots will have no name in bpy
+            slot.name = blender_tex.name
             slot.uv_layer = str('Lightmap')
             if scene.thug_bake_type == 'FULL' or scene.thug_bake_type == 'FULL_BI':
                 slot.blend_type = 'MIX'
@@ -2258,7 +2284,7 @@ class THUG_GenerateLightmapGroupUVs(bpy.types.Operator):
                     bpy.ops.object.mode_set(mode='EDIT')
                     if unwrapType == 'Smart':
                         bpy.ops.uv.smart_project(
-                            angle_limit=72.0, island_margin=0.1, user_area_weight=0.0)
+                            angle_limit=72.0, island_margin=0.1, area_weight=0.0)
                     elif unwrapType == 'Lightmap':
                         bpy.ops.uv.lightmap_pack(
                             PREF_CONTEXT='ALL_FACES', PREF_PACK_IN_ONE=True, PREF_NEW_UVLAYER=False, PREF_BOX_DIV=48, PREF_MARGIN_DIV=0.1)
@@ -2420,11 +2446,15 @@ class BakeLightmaps(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        meshes = [o for o in context.selected_objects if o.type == 'MESH']
+        # Missi: More recent Blender versions throw an exception if we try to bake anything with
+        # hide_render set to True, so do a check for that.
+        meshes = [o for o in context.selected_objects if o.type == 'MESH' and o.hide_render == False]
         return len(meshes) > 0
 
     def execute(self, context):
-        meshes = [o for o in context.selected_objects if o.type == 'MESH']
+        # Missi: More recent Blender versions throw an exception if we try to bake anything with
+        # hide_render set to True, so do a check for that.
+        meshes = [o for o in context.selected_objects if o.type == 'MESH' and o.hide_render == False]
         if context.scene.thug_bake_type == 'VERTEX_COLORS':
             bake_thug_vcs(meshes, context)
         else:

@@ -542,6 +542,8 @@ def export_scn(filename, directory, target_game, operator=None, is_model=False):
 
         w("i", 0)  # number of hierarchy objects
 
+        outp.close()
+
 #----------------------------------------------------------------------------------
 def export_col(filename, directory, target_game, operator=None):
     from io import BytesIO
@@ -855,6 +857,8 @@ def export_col(filename, directory, target_game, operator=None):
         else:
             for face in node_faces:
                 w("H", face)
+
+        outp.close()
 
     bm.free()
 
