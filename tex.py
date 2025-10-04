@@ -91,52 +91,23 @@ def get_all_compressed_mipmaps(image, compression_type, mm_offset, folder):
     
     dxt_compressor = "dxtcompressor.exe" if platform.system() == "Windows" else "dxtcompressor"
 
-        #src_uint8 = np.empty( len( uncompressed_pixels.pixels ), dtype=np.uint8 )
-
-        #out_bytes = None
-
     for level, (uncomp_w, uncomp_h, uncompressed_pixels) in enumerate(uncompressed_data):
-
         src = np.empty( len( uncompressed_pixels.pixels ), dtype=np.float32 )
-        #src_uint8 = np.empty( len( uncompressed_pixels.pixels ), dtype=np.uint8 )
 
-        out_bytes = None
-        
         uncompressed_pixels.pixels.foreach_get( src )
 
-        #for i in range( 0, len( src ) ):
-            #src_uint8[i] = ( src[i] * 255.0 )
-        
-        #swap_rb( src_uint8, uncomp_w * uncomp_h, 4 )
-        
-        #convert_pixels( fmtdst, src, DDS_FORMAT_RGBA8, uncomp_w, uncomp_h, 0, 4, None, 1 )
-        
         path = '{0}{1}{2}_mip{3}.ddsbytes'.format( folder, os.sep, image.name, level )
 
-        try:
-            fd = os.open( path, os.O_RDONLY )
-            #LOG.debug( 'file {} already exists!'.format( path ) )
-            os.close( fd )
-        except OSError as e:
-            #LOG.debug( 'creating file {}'.format( path ) )
-            fd = os.open( path, os.O_WRONLY | os.O_CREAT )
-            os.write( fd, src )
-            os.close( fd )
+        fd = os.open( path, os.O_WRONLY | os.O_CREAT )
+        os.write( fd, src )
+        os.close( fd )
 
-        #dxt_compress( out_bytes, src_uint8, DDS_COMPRESS_BC1, uncomp_w, uncomp_h, 4, 1, 0 )
-        
         out_path = '{0}{1}{2}_mip{3}.ddscache'.format( folder, os.sep, image.name, level )
 
         subprocess.run( [ get_asset_path( dxt_compressor ), path, '{0}'.format( uncomp_w ), '{0}'.format( uncomp_h ), '{0}'.format( compression_type ), out_path ], capture_output=True )
 
         with open(out_path, "rb" ) as file:
             out_bytes = file.read()
-            
-        #os.remove( '{0}{1}{2}_mip{3}.ddsbytes'.format( folder, os.sep, image.name, level ) )
-
-        if ( out_bytes == None ):
-            LOG.debug( "uh oh... " )
-            return None
 
         textures.append( ( uncomp_w, uncomp_h, out_bytes ) )
     

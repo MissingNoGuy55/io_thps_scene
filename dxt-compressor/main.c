@@ -138,6 +138,7 @@ static int image_memcmp( const void* mem1, const void* mem2, size_t count )
 
         mem1_bytes++;
         mem2_bytes++;
+        c++;
     }
 
     return 1;
@@ -410,15 +411,15 @@ int main( int argc, char** argv )
 			fseek( f, 0, SEEK_END );
 			cachedSize = ftell( f );
 			rewind( f );
-		
+
 			pCached = malloc( cachedSize );
 			memset( pCached, 0, cachedSize );
-		
+
 			fread( pCached, 1, cachedSize, f );
 			fclose( f );
 			f = NULL;
-			
-            if ( image_memcmp( pCached, pBuf, cachedSize ) == 0 )
+
+            if ( cachedSize == compressed_size && image_memcmp( pCached, pBuf, cachedSize ) == 0 )
             {
                 free( pCached );
                 pCached = NULL;

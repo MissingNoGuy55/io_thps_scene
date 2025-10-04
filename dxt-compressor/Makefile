@@ -66,6 +66,9 @@ release: $(TARGET_RELEASE)
 
 clean:
 	rm -f *.o $(TARGET)
+	rm -f *.exe $(TARGET)
+	rm -f dxtcompressor
+	rm -f dxtcompressor-debug
 
 install: all
 	$(GIMPTOOL) --install-bin $(TARGET)
