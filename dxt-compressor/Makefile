@@ -18,7 +18,7 @@ EXT=.exe
 CC=$(MINGW)
 LDFLAGS+=-L./glew/lib/Release/x64 -I./glew/include
 LD=$(LD_MINGW)
-LIBS+=-lglew32 -lopengl32 -lgdi32
+LIBS+=-lopengl32 -lgdi32 -lglu32
 endif
 
 $(info $(LIBS))
@@ -28,7 +28,7 @@ EXT=.exe
 CC=$(MINGW)
 LDFLAGS+=-L./glew/lib/Release/x64 -I./glew/include
 LD=$(LD_MINGW)
-LIBS+=-lglew32 -lopengl32 -lgdi32
+LIBS+=-lopengl32 -lgdi32 -lglu32
 endif
 
 ifeq ($(DXT_TARGET),release)

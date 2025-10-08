@@ -1,6 +1,6 @@
 #include "main.h"
 
-static const char* pszHelpInfo = "**************DXT COMPRESSOR FOR THUG PRO**************\nWritten by Stephen \"Missi\" Schmiedeberg\n----------------------------------------\n\nUSAGE:\nddscompressor [input file] [width] [height] [DXT1 or DXT5] [output file]\n----------------------------------------\n\nALL parameters are required\nThe input file must be ONLY pixels, with no headers or extra data present.\nDo note that this outputs raw pixel data to be read by THUG Pro, with no DDS header or anything that can be opened in an image editor.";
+static const char* pszHelpInfo = "**************DXT COMPRESSOR FOR THUG PRO**************\nWritten by Stephen \"Missi\" Schmiedeberg\n----------------------------------------\n\nUSAGE:\ndxtcompressor [input file] [width] [height] [DXT1 or DXT5] [output file]\n----------------------------------------\n\nALL parameters are required\nThe input file must be ONLY pixels, with no headers or extra data present.\nDo note that this outputs raw pixel data to be read by THUG Pro, with no DDS header or anything that can be opened in an image editor.";
 
 static int32_t flength;
 static uint8_t* pBuf;
@@ -18,6 +18,9 @@ static int s_iArgC;
 #endif
 
 #ifdef _WIN32
+
+PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
+PFNGLGETCOMPRESSEDTEXIMAGEPROC glGetCompressedTexImage;
 
 static HGLRC pHGLRC;
 
@@ -44,12 +47,6 @@ static HGLRC CreateGLContext(HDC pDC)
 	HGLRC tempContext = wglCreateContext(pDC);
 	wglMakeCurrent(pDC, tempContext);
 	
-	GLenum err = glewInit();
-	if (GLEW_OK != err)
-	{
-		printf("GLEW is not initialized!");
-	}
-	
 	int attribs[] =
 	{
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
@@ -58,7 +55,7 @@ static HGLRC CreateGLContext(HDC pDC)
 		0
 	};
 	
-    if(wglewIsSupported("WGL_ARB_create_context") == 1)
+    if( ( wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("WGL_ARB_create_context") ) != NULL )
     {
 		pHGLRC = wglCreateContextAttribsARB(pDC, 0, attribs);
 		wglMakeCurrent(NULL,NULL);
@@ -68,6 +65,11 @@ static HGLRC CreateGLContext(HDC pDC)
 	else
 	{	//It's not possible to make a GL 3.x context. Use the old style context (GL 2.1 and before)
 		pHGLRC = tempContext;
+	}
+
+	if( ( glGetCompressedTexImage = (PFNGLGETCOMPRESSEDTEXIMAGEPROC)wglGetProcAddress("glGetCompressedTexImage" ) ) != NULL )
+    {
+		printf( "Found glGetCompressedTexImage\n" );
 	}
 
 	//Checking GL version
@@ -134,14 +136,14 @@ static int image_memcmp( const void* mem1, const void* mem2, size_t count )
             break;
 
         if (*mem1_bytes != *mem2_bytes )
-            return 0;
+            return 1;
 
-        mem1_bytes++;
-        mem2_bytes++;
+        *mem1_bytes++;
+        *mem2_bytes++;
         c++;
     }
 
-    return 1;
+    return 0;
 }
 
 int main( int argc, char** argv )
@@ -162,7 +164,7 @@ int main( int argc, char** argv )
     HWND pWindow;
 #endif
 
-    if ( s_iArgC <= 1 )
+    if ( s_iArgC < 5 )
     {
         ShowHelp();
         return 1;
@@ -338,7 +340,7 @@ int main( int argc, char** argv )
         pWindow = CreateWindowEx(
         0,                              // Optional window styles.
         CLASS_NAME,                     // Window class
-        L"Learn to Program Windows",    // Window text
+        L"Dummy",                       // Window text
         WS_OVERLAPPEDWINDOW,            // Window style
 
         // Size and position
@@ -419,7 +421,7 @@ int main( int argc, char** argv )
 			fclose( f );
 			f = NULL;
 
-            if ( cachedSize == compressed_size && image_memcmp( pCached, pBuf, cachedSize ) == 0 )
+            if ( cachedSize == compressed_size && image_memcmp( pCached, pOut, cachedSize ) == 0 )
             {
                 free( pCached );
                 pCached = NULL;
