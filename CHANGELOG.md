@@ -10,7 +10,7 @@
 * Lightmap groups are prioritized over standard objects when the baking process begins.
 * Lightmap groups now bake what is selected, rather than one at a time.
 
-* Baking multiple lightmap groups now works as intended. This is the only way `bpy.ops.object.bake` can bake to a single texture with multiple objects. It is destructive, and it will wipe previously-baked data if you select and bake different objects in the group. Be
+* Baking multiple lightmap groups now works as intended. This is the only way `bpy.ops.object.bake` can bake to a single texture with multiple objects. It is destructive, and it will wipe previously-baked data if you select and bake different objects in the group. Be careful!
 
 * Fixed a serious bug where deleting lightmap groups would not update IDs in objects in the groups that come after the deleted group.
 
