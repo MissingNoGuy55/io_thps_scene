@@ -4,12 +4,14 @@
 * Unbaking a lightmap group will no longer remove the objects from it.
 * Lightmap group UV generation now uses a margin of `(16384 / ( img_res * ( img_res / 4 ) ) )`, which scales with image size.
 * When creating lightmap group UVs, the active UV layer will stay what it was set to prior.
-* Objects with `hide_render` set to true or with no materials can no longer be added to lightmap groups.
-** This is because Blender would throw an exception when attempting to bake these.
+
+* Objects with `hide_render` set to true or with no materials can no longer be added to lightmap groups. This is because Blender would throw an exception when attempting to bake these.
+
 * Lightmap groups are prioritized over standard objects when the baking process begins.
 * Lightmap groups now bake what is selected, rather than one at a time.
-** Baking multiple lightmap groups now works as intended.
-** This is the only way `bpy.ops.object.bake` can bake to a single texture with multiple objects. It is destructive, and it will wipe previously-baked data if you select and bake different objects in the group. Be careful!
+
+* Baking multiple lightmap groups now works as intended. This is the only way `bpy.ops.object.bake` can bake to a single texture with multiple objects. It is destructive, and it will wipe previously-baked data if you select and bake different objects in the group. Be
+
 * Fixed a serious bug where deleting lightmap groups would not update IDs in objects in the groups that come after the deleted group.
 
 ## Baking/unbaking fixes
